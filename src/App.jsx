@@ -216,7 +216,7 @@ function Dashboard({onNav}) {
   useEffect(()=>{const h=new Date().getHours();setGreeting(h<12?"Good morning":h<17?"Good afternoon":"Good evening");},[]);
 
   useEffect(()=>{
-    const meal=MEAL_FOR_HOUR(new Date().getHours());
+    const meal="lunch";
     setRecsMeal(meal);
     fetch(`${API_BASE}/api/recommend?meal=${meal}`,{headers:{Authorization:`Bearer ${token}`}})
       .then(r=>r.json())
@@ -688,13 +688,30 @@ function FoodCard({item,saved,onSave}) {
 }
 
 function MenuBrowser() {
+  const { token } = useAuth();
   const [selectedStation,setSelectedStation]=useState("All");
   const [activeTags,setActiveTags]=useState([]);
   const [sortKey,setSortKey]=useState("default");
   const [searchQuery,setSearchQuery]=useState("");
-  const [mealType,setMealType]=useState("dinner");
+  const [mealType,setMealType]=useState(()=>{ const h=new Date().getHours(); return h<11?"breakfast":h<16?"lunch":"dinner"; });
   const [saved,setSaved]=useState({});
   const [showSaved,setShowSaved]=useState(false);
+  const [recs,setRecs]=useState([]);
+  const [recsLoading,setRecsLoading]=useState(true);
+  const [showRecs,setShowRecs]=useState(true);
+
+  useEffect(()=>{
+    setRecsLoading(true);
+    fetch(`https://badgerbite-api.onrender.com/api/recommend?meal=${mealType}`,{headers:{Authorization:`Bearer ${token}`}})
+      .then(r=>r.json())
+      .then(data=>{
+        const all=Object.entries(data.halls||{}).flatMap(([,items])=>items);
+        all.sort((a,b)=>b.score-a.score);
+        setRecs(all.slice(0,6));
+      })
+      .catch(()=>setRecs([]))
+      .finally(()=>setRecsLoading(false));
+  },[mealType,token]);
 
   const toggleTag=tag=>setActiveTags(p=>p.includes(tag)?p.filter(t=>t!==tag):[...p,tag]);
   const toggleSave=id=>setSaved(p=>({...p,[id]:!p[id]}));
@@ -760,6 +777,33 @@ function MenuBrowser() {
           MY LOG
         </button>
       </div>
+
+      {/* ── RECOMMENDED SECTION ── */}
+      {(recsLoading||recs.length>0)&&showRecs&&(
+        <div style={{padding:"12px 20px 4px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15}}>⭐ Recommended <span style={{color:"#00f5a0"}}>for you</span></div>
+            <button onClick={()=>setShowRecs(false)} style={{background:"none",border:"none",color:"#334155",cursor:"pointer",fontFamily:"'Space Mono',monospace",fontSize:9,letterSpacing:"0.06em"}}>HIDE</button>
+          </div>
+          <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8}}>
+            {recsLoading?[0,1,2].map(i=>(
+              <div key={i} style={{flexShrink:0,width:148,height:110,borderRadius:16,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.05)",backgroundImage:"linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.04) 50%,transparent 100%)",backgroundSize:"200% 100%",animation:"shimmer 1.5s infinite"}}/>
+            )):recs.map(item=>(
+              <div key={item.food_id} onClick={()=>{setSearchQuery(item.name);setShowRecs(false);}}
+                style={{flexShrink:0,width:148,background:"rgba(0,245,160,0.04)",border:"1px solid rgba(0,245,160,0.15)",borderRadius:16,padding:12,cursor:"pointer",position:"relative",transition:"border-color 0.2s"}}>
+                <div style={{position:"absolute",top:8,right:8,fontFamily:"'Space Mono',monospace",fontSize:8,color:"#00f5a0",background:"rgba(0,245,160,0.1)",padding:"2px 6px",borderRadius:99}}>{Math.round(item.score*100)}pts</div>
+                <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:13,color:"#f1f5f9",lineHeight:1.3,marginBottom:4,paddingRight:32}}>{item.name}</div>
+                <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#475569",marginBottom:8}}>{item.station}</div>
+                <div style={{display:"flex",gap:8}}>
+                  <div><span style={{fontFamily:"'Space Mono',monospace",fontSize:13,color:"#f472b6"}}>{item.nutrition.calories}</span><span style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:"#334155"}}> kcal</span></div>
+                  <div><span style={{fontFamily:"'Space Mono',monospace",fontSize:13,color:"#60a5fa"}}>{item.nutrition.g_protein}g</span><span style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:"#334155"}}> pro</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{height:1,background:"rgba(255,255,255,0.05)",margin:"8px 0 4px"}}/>
+        </div>
+      )}
 
       <div style={{padding:"0 20px"}}>
         {filtered.length===0?(
