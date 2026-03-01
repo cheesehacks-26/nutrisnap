@@ -4,29 +4,6 @@ import { AuthProvider, AuthGate, useAuth } from "./auth.jsx";
 // ═══════════════════════════════════════════════════════════════════
 // SHARED DATA
 // ═══════════════════════════════════════════════════════════════════
-const MENU = [
-  { food_id: 1,  name: "Filipino Pork Sausage",   station: "1849",               food_category: "meat",      serving_size: "1 (4 oz)",  nutrition: { calories: 280, g_protein: 18, g_carbs: 4,  g_fat: 22, g_sugar: 1, mg_sodium: 620 }, food_tags: ["Gluten-Free"] },
-  { food_id: 2,  name: "Scrambled Eggs",           station: "Eggcetera",          food_category: "entree",    serving_size: "0.5 cup",   nutrition: { calories: 150, g_protein: 11, g_carbs: 2,  g_fat: 11, g_sugar: 1, mg_sodium: 310 }, food_tags: ["Vegetarian","Gluten-Free"] },
-  { food_id: 3,  name: "Sourdough Toast",          station: "Buckingham Bakery",  food_category: "grain",     serving_size: "2 slices",  nutrition: { calories: 180, g_protein: 6,  g_carbs: 34, g_fat: 2,  g_sugar: 2, mg_sodium: 380 }, food_tags: ["Vegan"] },
-  { food_id: 4,  name: "Cheese Pizza",             station: "Capital City Pizza", food_category: "entree",    serving_size: "1 slice",   nutrition: { calories: 310, g_protein: 13, g_carbs: 38, g_fat: 12, g_sugar: 4, mg_sodium: 680 }, food_tags: ["Vegetarian"] },
-  { food_id: 5,  name: "Caesar Salad",             station: "Great Greens",       food_category: "vegetable", serving_size: "1 cup",     nutrition: { calories: 120, g_protein: 4,  g_carbs: 8,  g_fat: 9,  g_sugar: 2, mg_sodium: 290 }, food_tags: ["Vegetarian"] },
-  { food_id: 6,  name: "Grilled Chicken Breast",   station: "Fired Up",           food_category: "meat",      serving_size: "1 (5 oz)",  nutrition: { calories: 220, g_protein: 42, g_carbs: 0,  g_fat: 5,  g_sugar: 0, mg_sodium: 440 }, food_tags: ["Gluten-Free"] },
-  { food_id: 7,  name: "Black Bean Burrito",       station: "Que Rico",           food_category: "entree",    serving_size: "1 burrito", nutrition: { calories: 420, g_protein: 16, g_carbs: 62, g_fat: 12, g_sugar: 3, mg_sodium: 780 }, food_tags: ["Vegan"] },
-  { food_id: 8,  name: "Penne Bolognese",          station: "Buona Cucina",       food_category: "entree",    serving_size: "1 cup",     nutrition: { calories: 380, g_protein: 22, g_carbs: 48, g_fat: 11, g_sugar: 6, mg_sodium: 560 }, food_tags: [] },
-  { food_id: 9,  name: "Chocolate Chip Cookie",    station: "Buckingham Bakery",  food_category: "dessert",   serving_size: "1 cookie",  nutrition: { calories: 210, g_protein: 2,  g_carbs: 30, g_fat: 10, g_sugar: 18, mg_sodium: 160 }, food_tags: ["Vegetarian"] },
-  { food_id: 10, name: "Roasted Broccoli",         station: "Gordon Delicious",   food_category: "vegetable", serving_size: "0.5 cup",   nutrition: { calories: 55,  g_protein: 3,  g_carbs: 7,  g_fat: 2,  g_sugar: 2, mg_sodium: 130 }, food_tags: ["Vegan","Gluten-Free"] },
-  { food_id: 11, name: "Brown Rice",               station: "Gordon Delicious",   food_category: "grain",     serving_size: "0.5 cup",   nutrition: { calories: 110, g_protein: 3,  g_carbs: 23, g_fat: 1,  g_sugar: 0, mg_sodium: 5   }, food_tags: ["Vegan","Gluten-Free"] },
-  { food_id: 12, name: "Pepperoni Pizza",          station: "Capital City Pizza", food_category: "entree",    serving_size: "1 slice",   nutrition: { calories: 360, g_protein: 15, g_carbs: 37, g_fat: 17, g_sugar: 3, mg_sodium: 820 }, food_tags: [] },
-  { food_id: 13, name: "Greek Yogurt Parfait",     station: "Eggcetera",          food_category: "other",     serving_size: "1 cup",     nutrition: { calories: 190, g_protein: 14, g_carbs: 28, g_fat: 3,  g_sugar: 20, mg_sodium: 85  }, food_tags: ["Vegetarian","Gluten-Free"] },
-  { food_id: 14, name: "Chicken Tacos",            station: "Que Rico",           food_category: "entree",    serving_size: "2 tacos",   nutrition: { calories: 340, g_protein: 26, g_carbs: 32, g_fat: 11, g_sugar: 2, mg_sodium: 640 }, food_tags: [] },
-  { food_id: 15, name: "Garlic Bread",             station: "Buona Cucina",       food_category: "grain",     serving_size: "1 slice",   nutrition: { calories: 160, g_protein: 4,  g_carbs: 22, g_fat: 7,  g_sugar: 1, mg_sodium: 310 }, food_tags: ["Vegetarian"] },
-  { food_id: 16, name: "Beef Burger",              station: "1849",               food_category: "entree",    serving_size: "1 burger",  nutrition: { calories: 510, g_protein: 32, g_carbs: 42, g_fat: 24, g_sugar: 6, mg_sodium: 890 }, food_tags: [] },
-  { food_id: 17, name: "Lentil Soup",              station: "Great Greens",       food_category: "other",     serving_size: "1 cup",     nutrition: { calories: 140, g_protein: 9,  g_carbs: 22, g_fat: 2,  g_sugar: 3, mg_sodium: 480 }, food_tags: ["Vegan","Gluten-Free"] },
-  { food_id: 18, name: "BBQ Pulled Pork",          station: "Fired Up",           food_category: "meat",      serving_size: "3 oz",      nutrition: { calories: 290, g_protein: 25, g_carbs: 14, g_fat: 13, g_sugar: 10, mg_sodium: 730 }, food_tags: ["Gluten-Free"] },
-];
-
-const USER = { name: "Alex", goal: "build_muscle", calorie_goal: 2400, protein_goal: 160, carb_goal: 260, fat_goal: 80 };
-
 const TAG_COLOR = { "Vegan": "#4ade80", "Vegetarian": "#86efac", "Gluten-Free": "#fbbf24" };
 const TAG_STYLE = {
   "Vegan":       { bg: "#4ade8018", border: "#4ade8040", color: "#4ade80" },
@@ -67,6 +44,7 @@ const NAV_ITEMS = [
   { key: "snap",  icon: "📸", label: "Snap"   },
   { key: "menu",  icon: "📋", label: "Menu"   },
   { key: "trends",icon: "📈", label: "Trends" },
+  { key: "profile",icon: "👤", label: "Profile"},
 ];
 
 function BottomNav({ active, onNav }) {
@@ -96,26 +74,7 @@ function BottomNav({ active, onNav }) {
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: DASHBOARD
 // ═══════════════════════════════════════════════════════════════════
-const TODAY_MEALS = [
-  { meal_id:"m1", meal_type:"breakfast", logged_at:"2026-02-28T08:12:00Z",
-    dishes:[
-      {food_id:2,name:"Scrambled Eggs",station:"Eggcetera",servings:1,nutrition:{calories:150,g_protein:11,g_carbs:2,g_fat:11,mg_sodium:310}},
-      {food_id:3,name:"Sourdough Toast",station:"Buckingham Bakery",servings:2,nutrition:{calories:360,g_protein:12,g_carbs:68,g_fat:4,mg_sodium:760}},
-    ], total_nutrition:{calories:510,g_protein:23,g_carbs:70,g_fat:15} },
-  { meal_id:"m2", meal_type:"lunch", logged_at:"2026-02-28T12:45:00Z",
-    dishes:[
-      {food_id:6,name:"Grilled Chicken Breast",station:"Fired Up",servings:1,nutrition:{calories:220,g_protein:42,g_carbs:0,g_fat:5,mg_sodium:440}},
-      {food_id:5,name:"Caesar Salad",station:"Great Greens",servings:1,nutrition:{calories:120,g_protein:4,g_carbs:8,g_fat:9,mg_sodium:290}},
-      {food_id:11,name:"Brown Rice",station:"Gordon Delicious",servings:1,nutrition:{calories:110,g_protein:3,g_carbs:23,g_fat:1,mg_sodium:5}},
-    ], total_nutrition:{calories:450,g_protein:49,g_carbs:31,g_fat:15} },
-];
 const MEAL_ICONS = {breakfast:"🌅",lunch:"☀️",dinner:"🌙",snack:"🍎"};
-const RECOMMENDED = [
-  {food_id:8, name:"Penne Bolognese",     station:"Buona Cucina", nutrition:{calories:380,g_protein:22,g_carbs:48,g_fat:11}, food_tags:[]},
-  {food_id:18,name:"BBQ Pulled Pork",     station:"Fired Up",     nutrition:{calories:290,g_protein:25,g_carbs:14,g_fat:13}, food_tags:["Gluten-Free"]},
-  {food_id:13,name:"Greek Yogurt Parfait",station:"Eggcetera",    nutrition:{calories:190,g_protein:14,g_carbs:28,g_fat:3},  food_tags:["Vegetarian","Gluten-Free"]},
-];
-
 function CalorieRing({consumed,goal}) {
   const r=72,stroke=8,cx=88,circ=2*Math.PI*r,over=consumed>goal;
   const pct=Math.min(1,consumed/goal);
@@ -230,7 +189,7 @@ async function apiDelete(path, token) {
 }
 
 function Dashboard({onNav}) {
-  const { logout, user, token } = useAuth();
+  const { user, token } = useAuth();
   const [greeting,setGreeting]=useState("");
   const [profile,setProfile]=useState(null);
   const [todayLogs,setTodayLogs]=useState([]);
@@ -321,7 +280,7 @@ function Dashboard({onNav}) {
             <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,letterSpacing:"-0.02em",marginTop:3}}>{displayName} <span style={{color:"#00f5a0"}}>👋</span></div>
             <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#475569",marginTop:4}}>Goal: <span style={{color:"#94a3b8",textTransform:"capitalize"}}>{goalLabel}</span></div>
           </div>
-          <button onClick={logout} title="Sign out" style={{width:46,height:46,borderRadius:16,background:"linear-gradient(135deg,#00f5a020,#00d9f520)",border:"1px solid #00f5a025",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",flexShrink:0}}>🦡</button>
+          <button onClick={()=>onNav("profile")} title="Profile" style={{width:46,height:46,borderRadius:16,background:"linear-gradient(135deg,#00f5a020,#00d9f520)",border:"1px solid #00f5a025",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",flexShrink:0}}>🦡</button>
         </div>
       </div>
 
@@ -429,8 +388,6 @@ function Dashboard({onNav}) {
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: SNAP
 // ═══════════════════════════════════════════════════════════════════
-const MOCK_DETECTIONS=[{label:"pizza",confidence:0.89},{label:"salad",confidence:0.74},{label:"bread",confidence:0.61}];
-
 function CornerBracket({style}) {
   return (
     <div style={{position:"absolute",width:28,height:28,...style}}>
@@ -493,6 +450,7 @@ function MatchCard({item,score,onConfirm,confirmed}) {
 
 function SnapPage({onNav}) {
   const { token } = useAuth();
+  const [selectedHall,setSelectedHall]=useState("gordon-avenue-market");
   const [phase,setPhase]=useState("idle");
   const [detections,setDetections]=useState([]);
   const [matches,setMatches]=useState([]);
@@ -553,7 +511,7 @@ function SnapPage({onNav}) {
       const meal=MEAL_FOR_HOUR(new Date().getHours());
       const data=await apiPost("/api/snap",token,{
         image:base64Image,
-        hall:"gordon-avenue-market",
+        hall:selectedHall,
         meal,
       });
       // Map matched items into our match format
@@ -569,7 +527,7 @@ function SnapPage({onNav}) {
       // fallback to manual
       setPhase("manual");
     }
-  },[stopCamera,token]);
+  },[stopCamera,token,selectedHall]);
 
   const handleLog=useCallback(async()=>{
     setLogError("");
@@ -587,23 +545,23 @@ function SnapPage({onNav}) {
         fiber_g:Math.round((item.nutrition?.g_fiber||0)*(item.servings||1)),
         sugar_g:Math.round((item.nutrition?.g_sugar||0)*(item.servings||1)),
         sodium_mg:Math.round((item.nutrition?.mg_sodium||item.nutrition?.g_sodium||0)*(item.servings||1)),
-        hall:"gordon-avenue-market",
+        hall:selectedHall,
         meal_type:MEAL_FOR_HOUR(new Date().getHours()),
       })));
       setShowSuccess(true);
       setTimeout(()=>{setShowSuccess(false);setPhase("idle");setDetections([]);setMatches([]);setConfirmed({});stopCamera();},2200);
     }catch(e){setLogError("Failed to log. Try again.");}
-  },[confirmed,stopCamera,token]);
+  },[confirmed,stopCamera,token,selectedHall]);
 
   useEffect(()=>()=>stopCamera(),[stopCamera]);
-  const [liveMenu,setLiveMenu]=useState(MENU);
+  const [liveMenu,setLiveMenu]=useState([]);
   useEffect(()=>{
     const meal=MEAL_FOR_HOUR(new Date().getHours());
-    fetch(`${API_BASE}/api/menu?hall=gordon-avenue-market&meal=${meal}`)
+    fetch(`${API_BASE}/api/menu?hall=${selectedHall}&meal=${meal}`)
       .then(r=>r.json()).then(d=>{if(d.items&&d.items.length>0){
         setLiveMenu(d.items.filter(i=>i.name&&i.name.trim()).map(i=>({...i,nutrition:{calories:i.nutrition.calories,g_protein:i.nutrition.g_protein,g_carbs:i.nutrition.g_carbs,g_fat:i.nutrition.g_fat,g_sugar:i.nutrition.g_sugar,mg_sodium:i.nutrition.mg_sodium},food_tags:i.food_tags||[]})));
       }}).catch(()=>{});
-  },[]);
+  },[selectedHall]);
   const filteredMenu=liveMenu.filter(i=>(i.name||"").toLowerCase().includes(searchQuery.toLowerCase())||(i.station||"").toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
@@ -725,8 +683,8 @@ function SnapPage({onNav}) {
           </div>
           <div style={{maxHeight:"55vh",overflowY:"auto"}}>
             {filteredMenu.map(item=>(
-              <div key={item.food_id} onClick={()=>setConfirmed(p=>({...p,manual:item}))}
-                style={{background:confirmed.manual?.food_id===item.food_id?"rgba(0,245,160,0.06)":"rgba(255,255,255,0.02)",border:`1px solid ${confirmed.manual?.food_id===item.food_id?"#00f5a030":"rgba(255,255,255,0.05)"}`,borderRadius:16,padding:"14px 16px",marginBottom:10,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all 0.2s"}}>
+              <div key={item.food_id} onClick={()=>setConfirmed(p=>{const key=`manual_${item.food_id}`;return p[key]?Object.fromEntries(Object.entries(p).filter(([k])=>k!==key)):{...p,[key]:item};})}
+                style={{background:confirmed[`manual_${item.food_id}`]?"rgba(0,245,160,0.06)":"rgba(255,255,255,0.02)",border:`1px solid ${confirmed[`manual_${item.food_id}`]?"#00f5a030":"rgba(255,255,255,0.05)"}`,borderRadius:16,padding:"14px 16px",marginBottom:10,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all 0.2s"}}>
                 <div>
                   <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:14,color:"#f1f5f9"}}>{item.name}</div>
                   <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#475569",marginTop:3}}>{item.station} · {item.serving_size}</div>
@@ -738,9 +696,9 @@ function SnapPage({onNav}) {
               </div>
             ))}
           </div>
-          {confirmed.manual&&(
+          {Object.keys(confirmed).some(k=>k.startsWith("manual_"))&&(
             <div style={{position:"sticky",bottom:24,marginTop:12}}>
-              <button onClick={handleLog} style={{width:"100%",padding:18,borderRadius:20,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#00f5a0,#00d9f5)",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16,color:"#030912",boxShadow:"0 12px 40px #00f5a050"}}>Log {confirmed.manual.name} →</button>
+              <button onClick={handleLog} style={{width:"100%",padding:18,borderRadius:20,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#00f5a0,#00d9f5)",fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16,color:"#030912",boxShadow:"0 12px 40px #00f5a050"}}>Log {Object.keys(confirmed).filter(k=>k.startsWith("manual_")).length} dish{Object.keys(confirmed).filter(k=>k.startsWith("manual_")).length>1?"es":""} →</button>
             </div>
           )}
         </div>
@@ -763,7 +721,6 @@ function SnapPage({onNav}) {
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: MENU BROWSER
 // ═══════════════════════════════════════════════════════════════════
-const STATIONS=["All",...Array.from(new Set(MENU.map(i=>i.station)))];
 const DIET_TAGS=["Vegan","Vegetarian","Gluten-Free"];
 const SORT_OPTIONS=[{key:"default",label:"Default"},{key:"cal_asc",label:"Cal ↑"},{key:"cal_desc",label:"Cal ↓"},{key:"protein",label:"Protein ↑"}];
 const STATION_ICONS={"1849":"🏛️","Eggcetera":"🥚","Buckingham Bakery":"🥐","Capital City Pizza":"🍕","Great Greens":"🥗","Fired Up":"🔥","Que Rico":"🌮","Buona Cucina":"🍝","Gordon Delicious":"⭐"};
@@ -808,7 +765,7 @@ function FoodCard({item,saved,onSave}) {
           </div>
           {nutrition.mg_sodium>700&&<div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#f87171",marginBottom:12}}>⚠️ High sodium: {nutrition.mg_sodium}mg</div>}
           <button onClick={e=>{e.stopPropagation();onSave(item.food_id);}} style={{width:"100%",padding:12,borderRadius:14,border:"none",cursor:"pointer",background:saved?"linear-gradient(135deg,#00f5a0,#00d9f5)":"rgba(255,255,255,0.05)",fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:13,color:saved?"#030912":"#64748b",transition:"all 0.25s ease"}}>
-            {saved?"✓ Saved to log":"+ Add to today's log"}
+            {saved?"✓ Added · tap to remove":"+ Add to log"}
           </button>
         </div>
       )}
@@ -823,7 +780,6 @@ function MenuBrowser() {
   const [sortKey,setSortKey]=useState("default");
   const [searchQuery,setSearchQuery]=useState("");
   const [mealType,setMealType]=useState(()=>{ const h=new Date().getHours(); return h<11?"breakfast":h<16?"lunch":"dinner"; });
-  const [saved,setSaved]=useState({});
   const [showSaved,setShowSaved]=useState(false);
   const [recs,setRecs]=useState([]);
   const [recsLoading,setRecsLoading]=useState(true);
@@ -850,11 +806,12 @@ function MenuBrowser() {
       })
       .catch(()=>setRecs([]))
       .finally(()=>setRecsLoading(false));
-  },[mealType,token]);
+  },[mealType,selectedHall,token]);
 
-  const [menuItems,setMenuItems]=useState(MENU);
+  const [menuItems,setMenuItems]=useState([]);
   const [menuLoading,setMenuLoading]=useState(true);
   const [logLoading,setLogLoading]=useState(false);
+  const stations=useMemo(()=>["All",...Array.from(new Set(menuItems.map(i=>i.station).filter(Boolean)))],[menuItems]);
 
   useEffect(()=>{
     setMenuLoading(true);
@@ -906,7 +863,7 @@ function MenuBrowser() {
         sodium_mg:item.nutrition.mg_sodium||0,
         hall:selectedHall,meal_type:mealType,
       })));
-      setSaved({});
+      setSavedFoodIds(new Set());
     }catch(e){}
     setLogLoading(false);
   };
@@ -923,7 +880,7 @@ function MenuBrowser() {
       case"protein":return[...list].sort((a,b)=>b.nutrition.g_protein-a.nutrition.g_protein);
       default:return list;
     }
-  },[selectedStation,activeTags,sortKey,searchQuery,showSaved,saved]);
+  },[selectedStation,activeTags,sortKey,searchQuery,showSaved,menuItems,savedFoodIds]);
 
   const savedCount=savedFoodIds.size;
   const totalCal=menuItems.filter(i=>savedFoodIds.has(String(i.food_id))).reduce((s,i)=>s+i.nutrition.calories,0);
@@ -969,7 +926,7 @@ function MenuBrowser() {
       </div>
 
       <div style={{padding:"4px 20px 0",overflowX:"auto",display:"flex",gap:8}}>
-        {STATIONS.map(s=>(
+        {stations.map(s=>(
           <button key={s} onClick={()=>setSelectedStation(s)} style={{flexShrink:0,padding:"7px 14px",borderRadius:12,cursor:"pointer",background:selectedStation===s?"rgba(255,255,255,0.08)":"transparent",border:`1px solid ${selectedStation===s?"rgba(255,255,255,0.15)":"rgba(255,255,255,0.04)"}`,fontFamily:"'DM Sans',sans-serif",fontWeight:selectedStation===s?700:400,fontSize:12,color:selectedStation===s?"#f1f5f9":"#475569",display:"flex",alignItems:"center",gap:5,transition:"all 0.2s"}}>
             {s!=="All"&&<span style={{fontSize:13}}>{STATION_ICONS[s]}</span>}{s}
           </button>
@@ -1128,7 +1085,7 @@ function Trends() {
           g_protein:Math.round(d.protein_g||0),
           g_carbs:Math.round(d.carbs_g||0),
           g_fat:Math.round(d.fat_g||0),
-          meals:d.calories>0?1:0,
+          meals:d.meal_count||d.meals||(d.calories>0?1:0),
         }));
         setWeekData(rows);
         setActiveDay(rows.length-1);
@@ -1171,7 +1128,7 @@ function Trends() {
     <div style={{paddingBottom:110,animation:"pageIn 0.35s ease"}}>
       <div style={{position:"fixed",top:-80,left:"50%",transform:"translateX(-50%)",width:500,height:400,background:"radial-gradient(circle,#00d9f508 0%,transparent 65%)",pointerEvents:"none",zIndex:0}}/>
       <div style={{padding:"52px 22px 20px",position:"relative",zIndex:1}}>
-        <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#334155",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:4}}>Feb 22 – 28</div>
+        <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#334155",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:4}}>{weekData.length>=2?`${weekData[0].date} – ${weekData[weekData.length-1].date}`:"This week"}</div>
         <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,letterSpacing:"-0.02em"}}>Weekly <span style={{color:"#00d9f5"}}>Trends</span></div>
       </div>
       <div style={{padding:"0 22px",position:"relative",zIndex:1}}>
@@ -1287,16 +1244,240 @@ function Trends() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// PAGE: PROFILE
+// ═══════════════════════════════════════════════════════════════════
+function ProfilePage({onNav}) {
+  const { token, logout } = useAuth();
+  const [profile,setProfile]=useState(null);
+  const [targets,setTargets]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState("");
+  const [success,setSuccess]=useState("");
+
+  const [displayName,setDisplayName]=useState("");
+  const [sex,setSex]=useState("");
+  const [age,setAge]=useState("");
+  const [heightFt,setHeightFt]=useState("");
+  const [heightIn,setHeightIn]=useState("");
+  const [weightLbs,setWeightLbs]=useState("");
+  const [goal,setGoal]=useState("");
+  const [activityLevel,setActivityLevel]=useState("");
+
+  useEffect(()=>{
+    Promise.all([
+      apiGet("/api/profile",token).catch(()=>({})),
+      apiGet("/api/targets",token).catch(()=>({})),
+    ]).then(([pData,tData])=>{
+      const p=pData.profile||pData||{};
+      const t=tData.targets||tData||{};
+      setProfile(p);
+      setTargets(t);
+      setDisplayName(p.display_name||"");
+      setSex(p.sex||"");
+      setAge(p.age?String(p.age):"");
+      const totalIn=p.height_in||0;
+      setHeightFt(totalIn?String(Math.floor(totalIn/12)):"");
+      setHeightIn(totalIn?String(totalIn%12):"");
+      setWeightLbs(p.weight_lbs?String(p.weight_lbs):"");
+      setGoal(p.goal||"");
+      setActivityLevel(p.activity_level||"");
+    }).finally(()=>setLoading(false));
+  },[token]);
+
+  const handleSave=async()=>{
+    if(!displayName||!sex||!age||!heightFt||!weightLbs||!goal||!activityLevel){
+      setError("Please fill in all fields.");return;
+    }
+    setSaving(true);setError("");setSuccess("");
+    try{
+      const totalHeight=parseInt(heightFt||0)*12+parseInt(heightIn||0);
+      await fetch(`${API_BASE}/api/profile`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+        body:JSON.stringify({
+          display_name:displayName,sex,
+          age:parseInt(age),
+          height_in:totalHeight,
+          weight_lbs:parseFloat(weightLbs),
+          goal,activity_level:activityLevel,
+        }),
+      });
+      await fetch(`${API_BASE}/api/targets`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+      });
+      const tData=await apiGet("/api/targets",token).catch(()=>({}));
+      setTargets(tData.targets||tData||{});
+      setSuccess("Profile updated!");
+      setTimeout(()=>setSuccess(""),3000);
+    }catch(e){
+      setError("Failed to save. Try again.");
+    }finally{setSaving(false);}
+  };
+
+  const OptionBtn=({value,current,onSelect,children})=>(
+    <button onClick={()=>onSelect(value)} style={{
+      flex:1,padding:"12px 8px",borderRadius:14,cursor:"pointer",
+      background:current===value?"rgba(0,245,160,0.12)":"rgba(255,255,255,0.03)",
+      border:`1px solid ${current===value?"rgba(0,245,160,0.4)":"rgba(255,255,255,0.07)"}`,
+      color:current===value?"#00f5a0":"#64748b",
+      fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:13,transition:"all 0.2s",
+    }}>{children}</button>
+  );
+
+  const labelStyle={display:"block",fontFamily:"'Space Mono',monospace",fontSize:9,letterSpacing:"0.12em",color:"#334155",textTransform:"uppercase",marginBottom:8};
+  const inputStyle={width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:"13px 16px",fontSize:14,color:"#f1f5f9",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"};
+
+  if(loading)return(
+    <div style={{paddingBottom:110,animation:"pageIn 0.35s ease",display:"flex",alignItems:"center",justifyContent:"center",minHeight:"80vh"}}>
+      <div style={{fontFamily:"'Space Mono',monospace",fontSize:11,color:"#334155"}}>Loading profile...</div>
+    </div>
+  );
+
+  return(
+    <div style={{paddingBottom:110,animation:"pageIn 0.35s ease"}}>
+      <div style={{position:"fixed",top:-80,left:"50%",transform:"translateX(-50%)",width:500,height:500,background:"radial-gradient(circle,#00f5a006 0%,transparent 65%)",pointerEvents:"none",zIndex:0}}/>
+      <div style={{padding:"52px 22px 20px",position:"relative",zIndex:1}}>
+        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,letterSpacing:"-0.02em"}}>Your <span style={{color:"#00f5a0"}}>Profile</span></div>
+        <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#475569",marginTop:4}}>Update your info to recalculate nutrition targets</div>
+      </div>
+      <div style={{padding:"0 22px",position:"relative",zIndex:1}}>
+        {error&&<div style={{background:"rgba(248,113,113,0.1)",border:"1px solid rgba(248,113,113,0.25)",borderRadius:12,padding:"11px 14px",fontSize:13,color:"#f87171",marginBottom:14}}>{error}</div>}
+        {success&&<div style={{background:"rgba(0,245,160,0.1)",border:"1px solid rgba(0,245,160,0.25)",borderRadius:12,padding:"11px 14px",fontSize:13,color:"#00f5a0",marginBottom:14}}>{success}</div>}
+
+        <div style={{background:"rgba(15,20,40,0.9)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:24,padding:22,marginBottom:16,position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:0,left:0,right:0,height:1,background:"linear-gradient(90deg,transparent,#00f5a040,transparent)"}}/>
+          <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#334155",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:18}}>Basic Info</div>
+
+          <div style={{marginBottom:18}}>
+            <label style={labelStyle}>Display name</label>
+            <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="e.g. Badger" style={inputStyle}/>
+          </div>
+          <div style={{marginBottom:18}}>
+            <label style={labelStyle}>Biological sex</label>
+            <div style={{display:"flex",gap:10}}>
+              <OptionBtn value="male" current={sex} onSelect={setSex}>Male</OptionBtn>
+              <OptionBtn value="female" current={sex} onSelect={setSex}>Female</OptionBtn>
+            </div>
+          </div>
+          <div style={{marginBottom:18}}>
+            <label style={labelStyle}>Age</label>
+            <input type="number" value={age} onChange={e=>setAge(e.target.value)} placeholder="e.g. 20" style={inputStyle}/>
+          </div>
+        </div>
+
+        <div style={{background:"rgba(15,20,40,0.9)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:24,padding:22,marginBottom:16,position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:0,left:0,right:0,height:1,background:"linear-gradient(90deg,transparent,#00d9f540,transparent)"}}/>
+          <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#334155",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:18}}>Body Measurements</div>
+
+          <div style={{marginBottom:18}}>
+            <label style={labelStyle}>Height</label>
+            <div style={{display:"flex",gap:10}}>
+              <div style={{flex:1,position:"relative"}}>
+                <input type="number" value={heightFt} onChange={e=>setHeightFt(e.target.value)} placeholder="5" style={{...inputStyle,paddingRight:32}}/>
+                <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontFamily:"'Space Mono',monospace",fontSize:11,color:"#334155"}}>ft</span>
+              </div>
+              <div style={{flex:1,position:"relative"}}>
+                <input type="number" value={heightIn} onChange={e=>setHeightIn(e.target.value)} placeholder="10" style={{...inputStyle,paddingRight:32}}/>
+                <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontFamily:"'Space Mono',monospace",fontSize:11,color:"#334155"}}>in</span>
+              </div>
+            </div>
+          </div>
+          <div style={{marginBottom:18,position:"relative"}}>
+            <label style={labelStyle}>Weight</label>
+            <input type="number" value={weightLbs} onChange={e=>setWeightLbs(e.target.value)} placeholder="155" style={{...inputStyle,paddingRight:40}}/>
+            <span style={{position:"absolute",right:12,bottom:13,fontFamily:"'Space Mono',monospace",fontSize:11,color:"#334155"}}>lbs</span>
+          </div>
+        </div>
+
+        <div style={{background:"rgba(15,20,40,0.9)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:24,padding:22,marginBottom:16,position:"relative",overflow:"hidden"}}>
+          <div style={{position:"absolute",top:0,left:0,right:0,height:1,background:"linear-gradient(90deg,transparent,#fbbf2440,transparent)"}}/>
+          <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#334155",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:18}}>Goals</div>
+
+          <div style={{marginBottom:20}}>
+            <label style={labelStyle}>Goal</label>
+            <div style={{display:"flex",gap:8}}>
+              <OptionBtn value="cut" current={goal} onSelect={setGoal}>Cut</OptionBtn>
+              <OptionBtn value="maintain" current={goal} onSelect={setGoal}>Maintain</OptionBtn>
+              <OptionBtn value="bulk" current={goal} onSelect={setGoal}>Bulk</OptionBtn>
+            </div>
+          </div>
+          <div style={{marginBottom:8}}>
+            <label style={labelStyle}>Activity level</label>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {[
+                {v:"sedentary",l:"Sedentary",d:"Little or no exercise"},
+                {v:"light",l:"Light",d:"Exercise 1-3 days/week"},
+                {v:"moderate",l:"Moderate",d:"Exercise 3-5 days/week"},
+                {v:"active",l:"Active",d:"Exercise 6-7 days/week"},
+              ].map(({v,l,d})=>(
+                <button key={v} onClick={()=>setActivityLevel(v)} style={{
+                  padding:"12px 16px",borderRadius:14,cursor:"pointer",textAlign:"left",
+                  background:activityLevel===v?"rgba(0,245,160,0.08)":"rgba(255,255,255,0.03)",
+                  border:`1px solid ${activityLevel===v?"rgba(0,245,160,0.35)":"rgba(255,255,255,0.06)"}`,
+                  transition:"all 0.2s",
+                }}>
+                  <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:13,color:activityLevel===v?"#00f5a0":"#94a3b8"}}>{l}</div>
+                  <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#334155",marginTop:2}}>{d}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {targets&&(
+          <div style={{background:"rgba(15,20,40,0.9)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:24,padding:22,marginBottom:16,position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",top:0,left:0,right:0,height:1,background:"linear-gradient(90deg,transparent,#60a5fa40,transparent)"}}/>
+            <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#334155",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:18}}>Current Daily Targets</div>
+            <div style={{display:"flex",gap:10}}>
+              {[
+                {l:"Calories",v:targets.calorie_target||"-",u:"kcal",c:"#f472b6"},
+                {l:"Protein",v:targets.protein_g||"-",u:"g",c:"#60a5fa"},
+                {l:"Carbs",v:targets.carbs_g||"-",u:"g",c:"#fbbf24"},
+                {l:"Fat",v:targets.fat_g||"-",u:"g",c:"#f97316"},
+              ].map(({l,v,u,c})=>(
+                <div key={l} style={{flex:1,background:`${c}10`,border:`1px solid ${c}20`,borderRadius:14,padding:"10px 6px",textAlign:"center"}}>
+                  <div style={{fontFamily:"'Space Mono',monospace",fontSize:14,fontWeight:700,color:c}}>{v}<span style={{fontSize:8}}>{u}</span></div>
+                  <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:9,color:"#475569",marginTop:2,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button onClick={handleSave} disabled={saving} style={{
+          width:"100%",padding:16,borderRadius:18,border:"none",cursor:saving?"not-allowed":"pointer",
+          background:saving?"rgba(255,255,255,0.05)":"linear-gradient(135deg,#00f5a0,#00d9f5)",
+          fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,
+          color:saving?"#64748b":"#030912",
+          boxShadow:saving?"none":"0 8px 32px #00f5a040",
+          transition:"all 0.2s",marginBottom:12,
+        }}>{saving?"Saving...":"Save & Recalculate Targets"}</button>
+
+        <button onClick={logout} style={{
+          width:"100%",padding:14,borderRadius:16,cursor:"pointer",
+          background:"rgba(248,113,113,0.08)",border:"1px solid rgba(248,113,113,0.2)",
+          fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:14,color:"#f87171",
+          transition:"all 0.2s",
+        }}>Sign Out</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // ROOT APP
 // ═══════════════════════════════════════════════════════════════════
 export default function App() {
   const [page, setPage] = useState("home");
 
   const pages = {
-    home:   <Dashboard  onNav={setPage} />,
-    snap:   <SnapPage   onNav={setPage} />,
-    menu:   <MenuBrowser />,
-    trends: <Trends />,
+    home:    <Dashboard   onNav={setPage} />,
+    snap:    <SnapPage    onNav={setPage} />,
+    menu:    <MenuBrowser />,
+    trends:  <Trends />,
+    profile: <ProfilePage onNav={setPage} />,
   };
 
   return (

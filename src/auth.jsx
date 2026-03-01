@@ -1,4 +1,4 @@
-import { useState, useContext, createContext, useCallback } from "react";
+import { useState, useEffect, useContext, createContext, useCallback } from "react";
 
 // ═══════════════════════════════════════════════════════════════════
 // CONFIG
@@ -41,6 +41,19 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
+  }, [token]);
+
+  // Validate token on load - if stale, clear it
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(data => setUser(data.user || data))
+      .catch(() => {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken(null);
+        setUser(null);
+      });
   }, [token]);
 
   return (
