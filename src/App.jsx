@@ -1118,7 +1118,7 @@ function Trends() {
       </div>
       <div style={{padding:"0 22px",position:"relative",zIndex:1}}>
         <div style={{display:"flex",gap:10,marginBottom:20}}>
-          {[{l:"avg cal",v:avgCal,s:`goal ${GOALS_T.calories}`,c:"#f472b6"},{l:"avg protein",v:`${avgProt}g`,s:`goal ${GOALS_T.g_protein}g`,c:"#60a5fa"},{l:"days logged",v:`${daysLogged}/7`,s:"this week",c:"#00f5a0"},{l:"on target",v:`${daysOnGoal}d`,s:"within ±10%",c:"#fbbf24"}].map(({l,v,s,c})=>(
+          {[{l:"avg cal",v:avgCal,s:`goal ${goalsT.calories}`,c:"#f472b6"},{l:"avg protein",v:`${avgProt}g`,s:`goal ${goalsT.g_protein}g`,c:"#60a5fa"},{l:"days logged",v:`${daysLogged}/7`,s:"this week",c:"#00f5a0"},{l:"on target",v:`${daysOnGoal}d`,s:"within ±10%",c:"#fbbf24"}].map(({l,v,s,c})=>(
             <div key={l} style={{flex:1,background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:16,padding:"14px 8px",textAlign:"center"}}>
               <div style={{fontFamily:"'Space Mono',monospace",fontSize:17,fontWeight:700,color:c}}>{v}</div>
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#475569",marginTop:3}}>{l}</div>
@@ -1155,7 +1155,7 @@ function Trends() {
               </div>
               <div style={{paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.04)",display:"flex",justifyContent:"space-between"}}>
                 <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#475569"}}>vs calorie goal</span>
-                <span style={{fontFamily:"'Space Mono',monospace",fontSize:12,color:sel.calories>GOALS_T.calories?"#f87171":"#00f5a0"}}>{sel.calories>goalsT.calories?`+${sel.calories-goalsT.calories}`:`−${goalsT.calories-sel.calories}`} kcal</span>
+                <span style={{fontFamily:"'Space Mono',monospace",fontSize:12,color:sel.calories>goalsT.calories?"#f87171":"#00f5a0"}}>{sel.calories>goalsT.calories?`+${sel.calories-goalsT.calories}`:`−${goalsT.calories-sel.calories}`} kcal</span>
               </div>
             </div>
           </div>
