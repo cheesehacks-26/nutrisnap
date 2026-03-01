@@ -1,24 +1,23 @@
 import { useState, useEffect, useContext, createContext, useCallback } from "react";
+import { DIETARY_OPTIONS, DIETARY_PREFS, ALLERGEN_OPTIONS } from "./utils/constants.js";
 
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // CONFIG
-// ═══════════════════════════════════════════════════════════════════
-const API = "https://badgerbite-api.onrender.com";
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+const API = import.meta.env.VITE_API_BASE || "https://badgerbite-api.onrender.com";
 const TOKEN_KEY = "bb_token";
 
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // AUTH CONTEXT
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export const AuthContext = createContext(null);
-
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
   const [user, setUser]   = useState(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [isValidating, setIsValidating] = useState(!!localStorage.getItem(TOKEN_KEY));
 
   const login = useCallback((accessToken, userData, isNew = false) => {
     localStorage.setItem(TOKEN_KEY, accessToken);
@@ -43,9 +42,10 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, [token]);
 
-  // Validate token on load - if stale, clear it
+  // Validate stored token on load â€” prevents auth flash
   useEffect(() => {
-    if (!token) return;
+    if (!token) { setIsValidating(false); return; }
+    setIsValidating(true);
     fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(data => setUser(data.user || data))
@@ -53,19 +53,24 @@ export function AuthProvider({ children }) {
         localStorage.removeItem(TOKEN_KEY);
         setToken(null);
         setUser(null);
-      });
+      })
+      .finally(() => setIsValidating(false));
   }, [token]);
 
   return (
-    <AuthContext.Provider value={{ token, user, setUser, login, logout, isAuthed: !!token, needsOnboarding, completeOnboarding }}>
+    <AuthContext.Provider value={{
+      token, user, setUser, login, logout,
+      isAuthed: !!token, isValidating,
+      needsOnboarding, completeOnboarding,
+    }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // API HELPER
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 async function authRequest(path, body) {
   const res = await fetch(`${API}${path}`, {
     method: "POST",
@@ -77,13 +82,13 @@ async function authRequest(path, body) {
   return data;
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // SHARED STYLES
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const s = {
   page: {
     minHeight: "100vh",
-    background: "#06080f",
+    background: "var(--bg)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -100,14 +105,14 @@ const s = {
     transform: "translateX(-50%)",
     width: 500,
     height: 500,
-    background: "radial-gradient(circle, #00f5a00a 0%, transparent 65%)",
+    background: "radial-gradient(circle, var(--glow) 0%, transparent 65%)",
     pointerEvents: "none",
   },
   card: {
     width: "100%",
     maxWidth: 380,
-    background: "rgba(15,20,40,0.85)",
-    border: "1px solid rgba(255,255,255,0.07)",
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
     borderRadius: 28,
     padding: "36px 28px",
     position: "relative",
@@ -116,7 +121,7 @@ const s = {
   topLine: {
     position: "absolute",
     top: 0, left: 0, right: 0, height: 1,
-    background: "linear-gradient(90deg, transparent, #00f5a040, transparent)",
+    background: "linear-gradient(90deg, transparent, var(--accent)40, transparent)",
   },
   logo: {
     fontFamily: "'Syne', sans-serif",
@@ -124,11 +129,11 @@ const s = {
     fontSize: 30,
     letterSpacing: "-0.02em",
     marginBottom: 6,
-    color: "#f1f5f9",
+    color: "var(--text-primary)",
   },
   subtitle: {
     fontSize: 13,
-    color: "#475569",
+    color: "var(--text-muted)",
     marginBottom: 30,
   },
   label: {
@@ -136,25 +141,25 @@ const s = {
     fontFamily: "'Space Mono', monospace",
     fontSize: 9,
     letterSpacing: "0.12em",
-    color: "#334155",
+    color: "var(--text-dim)",
     textTransform: "uppercase",
     marginBottom: 8,
   },
   input: {
     width: "100%",
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.08)",
+    background: "var(--bg-input)",
+    border: "1px solid var(--border)",
     borderRadius: 14,
     padding: "13px 16px",
     fontSize: 14,
-    color: "#f1f5f9",
+    color: "var(--text-primary)",
     outline: "none",
     fontFamily: "'DM Sans', sans-serif",
     transition: "border-color 0.2s",
     boxSizing: "border-box",
   },
   inputFocus: {
-    borderColor: "#00f5a050",
+    borderColor: "var(--accent)50",
   },
   btn: {
     width: "100%",
@@ -165,9 +170,9 @@ const s = {
     fontFamily: "'Syne', sans-serif",
     fontWeight: 700,
     fontSize: 15,
-    background: "linear-gradient(135deg, #00f5a0, #00d9f5)",
-    color: "#030912",
-    boxShadow: "0 8px 32px #00f5a040",
+    background: "linear-gradient(135deg, var(--accent), var(--accent2))",
+    color: "var(--accent-contrast)",
+    boxShadow: "0 8px 32px var(--accent)40",
     transition: "opacity 0.2s, transform 0.15s",
     marginTop: 8,
   },
@@ -179,11 +184,11 @@ const s = {
   switchText: {
     textAlign: "center",
     fontSize: 13,
-    color: "#475569",
+    color: "var(--text-muted)",
     marginTop: 22,
   },
   switchLink: {
-    color: "#00f5a0",
+    color: "var(--accent)",
     cursor: "pointer",
     fontWeight: 600,
     background: "none",
@@ -193,20 +198,20 @@ const s = {
     padding: 0,
   },
   error: {
-    background: "rgba(248,113,113,0.1)",
-    border: "1px solid rgba(248,113,113,0.25)",
+    background: "var(--danger-bg)",
+    border: "1px solid var(--danger-border)",
     borderRadius: 12,
     padding: "11px 14px",
     fontSize: 13,
-    color: "#f87171",
+    color: "var(--danger)",
     marginBottom: 18,
     lineHeight: 1.5,
   },
 };
 
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // INPUT COMPONENT
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function Field({ label, type = "text", value, onChange, placeholder, autoComplete }) {
   const [focused, setFocused] = useState(false);
   return (
@@ -220,18 +225,15 @@ function Field({ label, type = "text", value, onChange, placeholder, autoComplet
         autoComplete={autoComplete}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        style={{
-          ...s.input,
-          ...(focused ? s.inputFocus : {}),
-        }}
+        style={{ ...s.input, ...(focused ? s.inputFocus : {}) }}
       />
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // LOGIN PAGE
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function LoginPage({ onSwitch }) {
   const { login } = useAuth();
   const [email, setEmail]       = useState("");
@@ -257,27 +259,22 @@ export function LoginPage({ onSwitch }) {
       <div style={s.glow} />
       <div style={s.card}>
         <div style={s.topLine} />
-        <div style={s.logo}>
-          Nutri<span style={{ color: "#00f5a0" }}>Snap</span>
-        </div>
-        <div style={s.subtitle}>Sign in to track your dining hall meals 🦡</div>
-
-        {error && <div style={s.error}>{error}</div>}
-
+        <div style={s.logo}>Nutri<span style={{ color: "var(--accent)" }}>Snap</span></div>
+        <div style={s.subtitle}>Sign in to track your dining hall meals \uD83C\uDF74</div>
+        {error && <div style={s.error} role="alert">{error}</div>}
         <Field label="Email" type="email" value={email} onChange={setEmail}
           placeholder="you@wisc.edu" autoComplete="email" />
         <Field label="Password" type="password" value={password} onChange={setPassword}
-          placeholder="••••••••" autoComplete="current-password" />
-
+          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" autoComplete="current-password" />
         <button
           onClick={handleSubmit}
           disabled={loading}
           onKeyDown={e => e.key === "Enter" && handleSubmit()}
           style={{ ...s.btn, ...(loading ? s.btnDisabled : {}) }}
+          aria-label="Sign in"
         >
-          {loading ? "Signing in..." : "Sign in →"}
+          {loading ? "Signing in..." : "Sign in â†’"}
         </button>
-
         <div style={s.switchText}>
           No account?{" "}
           <button style={s.switchLink} onClick={onSwitch}>Create one</button>
@@ -287,9 +284,9 @@ export function LoginPage({ onSwitch }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // REGISTER PAGE
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function RegisterPage({ onSwitch }) {
   const { login } = useAuth();
   const [email, setEmail]       = useState("");
@@ -302,6 +299,9 @@ export function RegisterPage({ onSwitch }) {
     if (!email || !password) { setError("Please fill in all fields."); return; }
     if (password !== confirm)  { setError("Passwords don't match."); return; }
     if (password.length < 8)   { setError("Password must be at least 8 characters."); return; }
+    if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setError("Password must contain at least one uppercase letter and one number."); return;
+    }
     setLoading(true); setError("");
     try {
       const data = await authRequest("/auth/register", { email, password });
@@ -318,28 +318,23 @@ export function RegisterPage({ onSwitch }) {
       <div style={s.glow} />
       <div style={s.card}>
         <div style={s.topLine} />
-        <div style={s.logo}>
-          Nutri<span style={{ color: "#00f5a0" }}>Snap</span>
-        </div>
-        <div style={s.subtitle}>Create your account to get started 🌱</div>
-
-        {error && <div style={s.error}>{error}</div>}
-
+        <div style={s.logo}>Nutri<span style={{ color: "var(--accent)" }}>Snap</span></div>
+        <div style={s.subtitle}>Create your account to get started \uD83C\uDF31</div>
+        {error && <div style={s.error} role="alert">{error}</div>}
         <Field label="Email" type="email" value={email} onChange={setEmail}
           placeholder="you@wisc.edu" autoComplete="email" />
         <Field label="Password" type="password" value={password} onChange={setPassword}
-          placeholder="Min 8 characters" autoComplete="new-password" />
+          placeholder="Min 8 chars, 1 uppercase, 1 number" autoComplete="new-password" />
         <Field label="Confirm password" type="password" value={confirm} onChange={setConfirm}
-          placeholder="••••••••" autoComplete="new-password" />
-
+          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" autoComplete="new-password" />
         <button
           onClick={handleSubmit}
           disabled={loading}
           style={{ ...s.btn, ...(loading ? s.btnDisabled : {}) }}
+          aria-label="Create account"
         >
-          {loading ? "Creating account..." : "Create account →"}
+          {loading ? "Creating account..." : "Create account â†’"}
         </button>
-
         <div style={s.switchText}>
           Already have an account?{" "}
           <button style={s.switchLink} onClick={onSwitch}>Sign in</button>
@@ -349,10 +344,9 @@ export function RegisterPage({ onSwitch }) {
   );
 }
 
-
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // ONBOARDING PAGE
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function OnboardingPage() {
   const { token, completeOnboarding } = useAuth();
   const [step, setStep] = useState(0);
@@ -367,16 +361,20 @@ export function OnboardingPage() {
   const [weightLbs, setWeightLbs] = useState("");
   const [goal, setGoal] = useState("");
   const [activityLevel, setActivityLevel] = useState("");
+  const [dietaryRestrictions, setDietaryRestrictions] = useState([]);
 
-  const totalHeight = parseInt(heightFt||0)*12 + parseInt(heightIn||0);
+  const totalHeight = parseInt(heightFt || 0) * 12 + parseInt(heightIn || 0);
+
+  const toggleDiet = (key) => setDietaryRestrictions(p =>
+    p.includes(key) ? p.filter(k => k !== key) : [...p, key]
+  );
 
   const handleSubmit = async () => {
     if (!displayName || !sex || !age || !heightFt || !weightLbs || !goal || !activityLevel) {
-      setError("Please fill in all fields."); return;
+      setError("Please fill in all required fields."); return;
     }
     setLoading(true); setError("");
     try {
-      // 1. Save profile
       await fetch(`${API}/api/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -388,15 +386,15 @@ export function OnboardingPage() {
           weight_lbs: parseFloat(weightLbs),
           goal,
           activity_level: activityLevel,
+          dietary_restrictions: dietaryRestrictions,
         }),
       });
-      // 2. Calculate targets
       await fetch(`${API}/api/targets`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
       completeOnboarding();
-    } catch (e) {
+    } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -406,113 +404,134 @@ export function OnboardingPage() {
   const OptionBtn = ({ value, current, onSelect, children }) => (
     <button onClick={() => onSelect(value)} style={{
       flex: 1, padding: "12px 8px", borderRadius: 14, cursor: "pointer",
-      background: current === value ? "rgba(0,245,160,0.12)" : "rgba(255,255,255,0.03)",
-      border: `1px solid ${current === value ? "rgba(0,245,160,0.4)" : "rgba(255,255,255,0.07)"}`,
-      color: current === value ? "#00f5a0" : "#64748b",
+      background: current === value ? "var(--accent)18" : "var(--bg-input)",
+      border: `2px solid ${current === value ? "var(--accent)" : "var(--border)"}`,
+      color: current === value ? "var(--accent)" : "var(--text-muted)",
       fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 13,
       transition: "all 0.2s",
+      boxShadow: current === value ? "0 0 0 2px var(--accent)25" : "none",
     }}>{children}</button>
   );
+
+  const TOTAL_STEPS = 4;
 
   const steps = [
     // Step 0: Name + Sex
     <div key={0}>
-      <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:22,color:"#f1f5f9",marginBottom:6}}>
+      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", marginBottom: 6 }}>
         What should we call you?
       </div>
-      <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#475569",marginBottom:28}}>
-        Step 1 of 3 — Basic info
-      </div>
+      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>Step 1 of {TOTAL_STEPS} â€” Basic info</div>
       <Field label="Display name" value={displayName} onChange={setDisplayName} placeholder="e.g. Badger" />
-      <div style={{marginBottom:18}}>
+      <div style={{ marginBottom: 18 }}>
         <label style={s.label}>Biological sex</label>
-        <div style={{display:"flex",gap:10}}>
-          <OptionBtn value="male" current={sex} onSelect={setSex}>Male</OptionBtn>
+        <div style={{ display: "flex", gap: 10 }}>
+          <OptionBtn value="male"   current={sex} onSelect={setSex}>Male</OptionBtn>
           <OptionBtn value="female" current={sex} onSelect={setSex}>Female</OptionBtn>
         </div>
       </div>
       <Field label="Age" type="number" value={age} onChange={setAge} placeholder="e.g. 20" />
-      <button
-        onClick={() => { if(!displayName||!sex||!age){setError("Fill in all fields");return;} setError("");setStep(1); }}
-        style={s.btn}>Next →</button>
+      <button onClick={() => { if (!displayName || !sex || !age) { setError("Fill in all fields"); return; } setError(""); setStep(1); }} style={s.btn}>Next â†’</button>
     </div>,
 
     // Step 1: Height + Weight
     <div key={1}>
-      <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:22,color:"#f1f5f9",marginBottom:6}}>
+      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", marginBottom: 6 }}>
         Body measurements
       </div>
-      <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#475569",marginBottom:28}}>
-        Step 2 of 3 — Used to calculate your calorie needs
-      </div>
-      <div style={{marginBottom:18}}>
+      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>Step 2 of {TOTAL_STEPS} â€” Used to calculate your calorie needs</div>
+      <div style={{ marginBottom: 18 }}>
         <label style={s.label}>Height</label>
-        <div style={{display:"flex",gap:10}}>
-          <div style={{flex:1,position:"relative"}}>
-            <input type="number" value={heightFt} onChange={e=>setHeightFt(e.target.value)}
-              placeholder="5" style={{...s.input,paddingRight:32}}/>
-            <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontFamily:"'Space Mono',monospace",fontSize:11,color:"#334155"}}>ft</span>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1, position: "relative" }}>
+            <input type="number" value={heightFt} onChange={e => setHeightFt(e.target.value)} placeholder="5" style={{ ...s.input, paddingRight: 32 }} />
+            <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>ft</span>
           </div>
-          <div style={{flex:1,position:"relative"}}>
-            <input type="number" value={heightIn} onChange={e=>setHeightIn(e.target.value)}
-              placeholder="10" style={{...s.input,paddingRight:32}}/>
-            <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontFamily:"'Space Mono',monospace",fontSize:11,color:"#334155"}}>in</span>
+          <div style={{ flex: 1, position: "relative" }}>
+            <input type="number" value={heightIn} onChange={e => setHeightIn(e.target.value)} placeholder="10" style={{ ...s.input, paddingRight: 32 }} />
+            <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>in</span>
           </div>
         </div>
       </div>
-      <div style={{marginBottom:18,position:"relative"}}>
+      <div style={{ marginBottom: 18, position: "relative" }}>
         <label style={s.label}>Weight</label>
-        <input type="number" value={weightLbs} onChange={e=>setWeightLbs(e.target.value)}
-          placeholder="155" style={{...s.input,paddingRight:40}}/>
-        <span style={{position:"absolute",right:12,bottom:13,fontFamily:"'Space Mono',monospace",fontSize:11,color:"#334155"}}>lbs</span>
+        <input type="number" value={weightLbs} onChange={e => setWeightLbs(e.target.value)} placeholder="155" style={{ ...s.input, paddingRight: 40 }} />
+        <span style={{ position: "absolute", right: 12, bottom: 13, fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>lbs</span>
       </div>
-      <div style={{display:"flex",gap:10}}>
-        <button onClick={()=>setStep(0)} style={{...s.btn,background:"rgba(255,255,255,0.05)",color:"#64748b",boxShadow:"none",flex:0.6}}>← Back</button>
-        <button onClick={()=>{ if(!heightFt||!weightLbs){setError("Fill in all fields");return;} setError("");setStep(2);}} style={{...s.btn,flex:1}}>Next →</button>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={() => setStep(0)} style={{ ...s.btn, background: "var(--bg-input)", color: "var(--text-muted)", boxShadow: "none", flex: 0.6 }}>â† Back</button>
+        <button onClick={() => { if (!heightFt || !weightLbs) { setError("Fill in all fields"); return; } setError(""); setStep(2); }} style={{ ...s.btn, flex: 1 }}>Next â†’</button>
       </div>
     </div>,
 
     // Step 2: Goal + Activity
     <div key={2}>
-      <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:22,color:"#f1f5f9",marginBottom:6}}>
-        Your goals
-      </div>
-      <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#475569",marginBottom:28}}>
-        Step 3 of 3 — We'll personalize your nutrition targets
-      </div>
-      <div style={{marginBottom:20}}>
+      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", marginBottom: 6 }}>Your goals</div>
+      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>Step 3 of {TOTAL_STEPS} â€” We'll personalize your nutrition targets</div>
+      <div style={{ marginBottom: 20 }}>
         <label style={s.label}>Goal</label>
-        <div style={{display:"flex",gap:8}}>
-          <OptionBtn value="cut" current={goal} onSelect={setGoal}>🔥 Cut</OptionBtn>
-          <OptionBtn value="maintain" current={goal} onSelect={setGoal}>⚖️ Maintain</OptionBtn>
-          <OptionBtn value="bulk" current={goal} onSelect={setGoal}>💪 Bulk</OptionBtn>
+        <div style={{ display: "flex", gap: 8 }}>
+          <OptionBtn value="cut"      current={goal} onSelect={setGoal}>{"\uD83D\uDCA5"} Cut</OptionBtn>
+          <OptionBtn value="maintain" current={goal} onSelect={setGoal}>{"\u2705"} Maintain</OptionBtn>
+          <OptionBtn value="bulk"     current={goal} onSelect={setGoal}>{"\uD83C\uDF4A"} Bulk</OptionBtn>
         </div>
       </div>
-      <div style={{marginBottom:24}}>
+      <div style={{ marginBottom: 24 }}>
         <label style={s.label}>Activity level</label>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {[
-            {v:"sedentary",l:"Sedentary",d:"Little or no exercise"},
-            {v:"light",l:"Light",d:"Exercise 1–3 days/week"},
-            {v:"moderate",l:"Moderate",d:"Exercise 3–5 days/week"},
-            {v:"active",l:"Active",d:"Exercise 6–7 days/week"},
-          ].map(({v,l,d})=>(
-            <button key={v} onClick={()=>setActivityLevel(v)} style={{
-              padding:"12px 16px",borderRadius:14,cursor:"pointer",textAlign:"left",
-              background:activityLevel===v?"rgba(0,245,160,0.08)":"rgba(255,255,255,0.03)",
-              border:`1px solid ${activityLevel===v?"rgba(0,245,160,0.35)":"rgba(255,255,255,0.06)"}`,
-              transition:"all 0.2s",
+            { v: "sedentary", l: "Sedentary", d: "Little or no exercise" },
+            { v: "light",     l: "Light",     d: "Exercise 1â€“3 days/week" },
+            { v: "moderate",  l: "Moderate",  d: "Exercise 3â€“5 days/week" },
+            { v: "active",    l: "Active",    d: "Exercise 6â€“7 days/week" },
+          ].map(({ v, l, d }) => (
+            <button key={v} onClick={() => setActivityLevel(v)} style={{
+              padding: "12px 16px", borderRadius: 14, cursor: "pointer", textAlign: "left",
+              background: activityLevel === v ? "var(--accent)08" : "var(--bg-input)",
+              border: `2px solid ${activityLevel === v ? "var(--accent)" : "var(--border-faint)"}`,
+              transition: "all 0.2s",
+              boxShadow: activityLevel === v ? "0 0 0 2px var(--accent)20" : "none",
             }}>
-              <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:13,color:activityLevel===v?"#00f5a0":"#94a3b8"}}>{l}</div>
-              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#334155",marginTop:2}}>{d}</div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13, color: activityLevel === v ? "var(--accent)" : "var(--text-secondary)" }}>{l}</div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>{d}</div>
             </button>
           ))}
         </div>
       </div>
-      <div style={{display:"flex",gap:10}}>
-        <button onClick={()=>setStep(1)} style={{...s.btn,background:"rgba(255,255,255,0.05)",color:"#64748b",boxShadow:"none",flex:0.6}}>← Back</button>
-        <button onClick={handleSubmit} disabled={loading} style={{...s.btn,flex:1,...(loading?s.btnDisabled:{})}}>
-          {loading ? "Setting up…" : "Let's go 🦡"}
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={() => setStep(1)} style={{ ...s.btn, background: "var(--bg-input)", color: "var(--text-muted)", boxShadow: "none", flex: 0.6 }}>â† Back</button>
+        <button onClick={() => { if (!goal || !activityLevel) { setError("Select a goal and activity level"); return; } setError(""); setStep(3); }} style={{ ...s.btn, flex: 1 }}>Next â†’</button>
+      </div>
+    </div>,
+
+    // Step 3: Dietary Restrictions
+    <div key={3}>
+      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", marginBottom: 6 }}>Dietary needs</div>
+      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 6 }}>Step 4 of {TOTAL_STEPS} â€” Optional, helps filter the menu</div>
+      <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 20 }}>Select all that apply</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28 }}>
+        {DIETARY_OPTIONS.map(({ key, label, icon }) => {
+          const active = dietaryRestrictions.includes(key);
+          return (
+            <button key={key} onClick={() => toggleDiet(key)} style={{
+              padding: "10px 16px", borderRadius: 14, cursor: "pointer",
+              background: active ? "var(--accent)15" : "var(--bg-input)",
+              border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`,
+              color: active ? "var(--accent)" : "var(--text-secondary)",
+              fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13,
+              display: "flex", alignItems: "center", gap: 6,
+              transition: "all 0.2s",
+              boxShadow: active ? "0 0 0 2px var(--accent)25" : "none",
+            }}>
+              <span>{icon}</span> {label}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={() => setStep(2)} style={{ ...s.btn, background: "var(--bg-input)", color: "var(--text-muted)", boxShadow: "none", flex: 0.6 }}>â† Back</button>
+        <button onClick={handleSubmit} disabled={loading} style={{ ...s.btn, flex: 1, ...(loading ? s.btnDisabled : {}) }}>
+          {loading ? "Setting upâ€¦" : "Let's go \uD83C\uDF74"}
         </button>
       </div>
     </div>,
@@ -520,36 +539,42 @@ export function OnboardingPage() {
 
   return (
     <div style={s.page}>
-      <div style={s.glow}/>
-      <div style={{...s.card, maxWidth:400}}>
-        <div style={s.topLine}/>
-        {/* Progress bar */}
-        <div style={{display:"flex",gap:6,marginBottom:28}}>
-          {[0,1,2].map(i=>(
-            <div key={i} style={{flex:1,height:3,borderRadius:99,background:i<=step?"#00f5a0":"rgba(255,255,255,0.06)",transition:"background 0.3s"}}/>
+      <div style={s.glow} />
+      <div style={{ ...s.card, maxWidth: 400 }}>
+        <div style={s.topLine} />
+        <div style={{ display: "flex", gap: 6, marginBottom: 28 }}>
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} style={{ flex: 1, height: 3, borderRadius: 99, background: i <= step ? "var(--accent)" : "var(--border-faint)", transition: "background 0.3s" }} />
           ))}
         </div>
-        {error && <div style={s.error}>{error}</div>}
+        {error && <div style={s.error} role="alert">{error}</div>}
         {steps[step]}
       </div>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// AUTH GATE  (renders login/register if not authed, children if authed)
-// ═══════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// AUTH GATE
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function AuthGate({ children }) {
-  const { isAuthed, needsOnboarding } = useAuth();
+  const { isAuthed, needsOnboarding, isValidating } = useAuth();
   const [showLogin, setShowLogin] = useState(true);
+
+  if (isValidating) {
+    return (
+      <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "var(--text-dim)" }}>Loadingâ€¦</div>
+      </div>
+    );
+  }
 
   if (!isAuthed) {
     return showLogin
-      ? <LoginPage   onSwitch={() => setShowLogin(false)} />
-      : <RegisterPage onSwitch={() => setShowLogin(true)}  />;
+      ? <LoginPage onSwitch={() => setShowLogin(false)} />
+      : <RegisterPage onSwitch={() => setShowLogin(true)} />;
   }
-  if (needsOnboarding) {
-    return <OnboardingPage />;
-  }
+  if (needsOnboarding) return <OnboardingPage />;
   return children;
 }
+
