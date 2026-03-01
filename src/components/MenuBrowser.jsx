@@ -15,7 +15,7 @@ const SORT_OPTIONS = [
 function FoodCard({ item, saved, servings, logging, removing, onServingsChange, onSave, onRemove }) {
   const [expanded, setExpanded] = useState(false);
   const { name, station, food_category, serving_size, nutrition = {}, food_tags = [] } = item;
-  if (item.is_build_your_own && item.byo_components) return <BYOCard item={item} onSave={onSave} />;
+  if (item.is_build_your_own && item.byo_components) return <BYOCard item={item} onSave={onSave} saved={saved} logging={logging} />;
   const [localServings, setLocalServings] = useState(servings || 1);
   useEffect(() => { setLocalServings(servings || 1); }, [servings]);
   const updateServings = (next) => {
@@ -91,9 +91,10 @@ function FoodCard({ item, saved, servings, logging, removing, onServingsChange, 
 }
 
 // ── Build Your Own Card ──────────────────────────────────────────
-function BYOCard({ item, onSave }) {
+function BYOCard({ item, onSave, saved, logging }) {
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState({});
+  const [logged, setLogged] = useState(false);
   const { name, station, byo_components } = item;
 
   const toggle = (catIdx, itemIdx) => {
@@ -103,6 +104,7 @@ function BYOCard({ item, onSave }) {
       if (next[key]) delete next[key]; else next[key] = byo_components[catIdx].items[itemIdx];
       return next;
     });
+    setLogged(false);
   };
 
   const selArr = Object.values(selected);
@@ -111,7 +113,17 @@ function BYOCard({ item, onSave }) {
     g_protein: acc.g_protein + (s.nutrition?.g_protein || 0),
     g_carbs: acc.g_carbs + (s.nutrition?.g_carbs || 0),
     g_fat: acc.g_fat + (s.nutrition?.g_fat || 0),
-  }), { calories: 0, g_protein: 0, g_carbs: 0, g_fat: 0 });
+    g_sugar: acc.g_sugar + (s.nutrition?.g_sugar || 0),
+    mg_sodium: acc.mg_sodium + (s.nutrition?.mg_sodium || 0),
+  }), { calories: 0, g_protein: 0, g_carbs: 0, g_fat: 0, g_sugar: 0, mg_sodium: 0 });
+
+  const handleLog = (e) => {
+    e.stopPropagation();
+    if (selArr.length === 0 || logged) return;
+    const buildName = name + " (" + selArr.map(s => s.name).join(", ") + ")";
+    onSave?.(item.food_id, 1, { food_name: buildName, ...totals });
+    setLogged(true);
+  };
 
   if (!byo_components) return null;
 
@@ -186,10 +198,16 @@ function BYOCard({ item, onSave }) {
                   </div>
                 ))}
               </div>
-              <button onClick={e => { e.stopPropagation(); onSave?.(item.food_id); }}
-                style={{ width: "100%", padding: 12, borderRadius: 14, border: "none", cursor: "pointer", background: "linear-gradient(135deg,#a855f7,#00f5a0)", fontWeight: 700, fontSize: 13, color: "var(--accent-contrast)", transition: "all 0.25s ease" }}>
-                + Add build to log
-              </button>
+              {logged ? (
+                <div style={{ width: "100%", padding: 12, borderRadius: 14, border: "1.75px solid var(--accent)", background: "var(--accent)10", fontWeight: 700, fontSize: 13, color: "var(--accent)", textAlign: "center" }}>
+                  {"\u2713"} Added to log
+                </div>
+              ) : (
+                <button onClick={handleLog} disabled={logging}
+                  style={{ width: "100%", padding: 12, borderRadius: 14, border: "1.75px solid var(--border)", cursor: logging ? "not-allowed" : "pointer", background: "var(--bg-input)", fontWeight: 700, fontSize: 13, color: "var(--text-secondary)", transition: "all 0.25s ease", opacity: logging ? 0.6 : 1 }}>
+                  {logging ? "Logging..." : "+ Add build to log"}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -237,9 +255,10 @@ export default function MenuBrowser({ onNav }) {
     fetch(`${API_BASE}/api/recommend?meal=${effectiveMealForRecs}&hall=${selectedHall}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(data => {
-        const all = Object.entries(data.halls || {}).flatMap(([, items]) => items || []).filter(i => i && i.name?.trim());
-        all.sort((a, b) => (b?.score ?? 0) - (a?.score ?? 0));
-        setRecs(all.slice(0, 6));
+        const hallItems = (data.halls || {})[selectedHall] || [];
+        const filtered = hallItems.filter(i => i && i.name?.trim());
+        filtered.sort((a, b) => (b?.score ?? 0) - (a?.score ?? 0));
+        setRecs(filtered.slice(0, 6));
       })
       .catch(e => { console.error("Recs error:", e); setRecs([]); })
       .finally(() => setRecsLoading(false));
@@ -290,31 +309,45 @@ export default function MenuBrowser({ onNav }) {
     setSavedServings(p => ({ ...p, [strId]: servings }));
   };
 
-  const submitOneItem = async (id, servings = 1) => {
+  const submitOneItem = async (id, servings = 1, overrides = null) => {
     const strId = String(id);
     const item = menuItems.find(i => String(i.food_id) === strId);
     if (!item) return;
     const qty = servings || 1;
-    await apiPost("/api/log", token, {
-      food_id: String(item.food_id), food_name: item.name, quantity: qty,
-      serving_size: item.serving_size || "1 serving",
-      calories: Math.round((item.nutrition?.calories ?? 0) * qty),
-      protein_g: Math.round((item.nutrition?.g_protein ?? 0) * qty),
-      carbs_g: Math.round((item.nutrition?.g_carbs ?? 0) * qty),
-      fat_g: Math.round((item.nutrition?.g_fat ?? 0) * qty),
-      fiber_g: Math.round((item.nutrition?.g_fiber ?? 0) * qty),
-      sugar_g: Math.round((item.nutrition?.g_sugar ?? 0) * qty),
-      sodium_mg: Math.round((item.nutrition?.mg_sodium ?? 0) * qty),
-      hall: selectedHall, meal_type: mealType,
-    });
+    if (overrides) {
+      await apiPost("/api/log", token, {
+        food_id: strId, food_name: overrides.food_name || item.name, quantity: 1,
+        serving_size: "1 build",
+        calories: Math.round(overrides.calories || 0),
+        protein_g: Math.round(overrides.g_protein || 0),
+        carbs_g: Math.round(overrides.g_carbs || 0),
+        fat_g: Math.round(overrides.g_fat || 0),
+        fiber_g: 0,
+        sugar_g: Math.round(overrides.g_sugar || 0),
+        sodium_mg: Math.round(overrides.mg_sodium || 0),
+        hall: selectedHall, meal_type: mealType,
+      });
+    } else {
+      await apiPost("/api/log", token, {
+        food_id: strId, food_name: item.name, quantity: qty,
+        serving_size: item.serving_size || "1 serving",
+        calories: Math.round((item.nutrition?.calories ?? 0) * qty),
+        protein_g: Math.round((item.nutrition?.g_protein ?? 0) * qty),
+        carbs_g: Math.round((item.nutrition?.g_carbs ?? 0) * qty),
+        fat_g: Math.round((item.nutrition?.g_fat ?? 0) * qty),
+        fiber_g: Math.round((item.nutrition?.g_fiber ?? 0) * qty),
+        sugar_g: Math.round((item.nutrition?.g_sugar ?? 0) * qty),
+        sodium_mg: Math.round((item.nutrition?.mg_sodium ?? 0) * qty),
+        hall: selectedHall, meal_type: mealType,
+      });
+    }
   };
 
-  const handleLogFromCard = async (id, servings = 1) => {
+  const handleLogFromCard = async (id, servings = 1, overrides = null) => {
     const strId = String(id);
-    if (savedFoodIds.has(strId)) return;
     setLoggingIds(p => new Set([...p, strId]));
     try {
-      await submitOneItem(id, servings || 1);
+      await submitOneItem(id, servings || 1, overrides);
       setSavedFoodIds(p => new Set([...p, strId]));
       setSavedServings(p => ({ ...p, [strId]: servings || 1 }));
     } catch (e) {
@@ -348,7 +381,7 @@ export default function MenuBrowser({ onNav }) {
   const filtered = useMemo(() => {
     let list = menuItems;
     if (selectedStation !== "All") list = list.filter(i => i.station === selectedStation);
-    if (activeTags.length)   list = list.filter(i => activeTags.every(t => i.food_tags.includes(t)));
+    if (activeTags.length)   list = list.filter(i => i.is_build_your_own || activeTags.every(t => i.food_tags.includes(t)));
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       list = list.filter(i => {
@@ -472,7 +505,7 @@ export default function MenuBrowser({ onNav }) {
                 {recsLoading ? [0, 1, 2].map(i => (
                   <div key={i} style={{ flexShrink: 0, width: 148, height: 110, borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border-faint)", backgroundImage: "linear-gradient(90deg,transparent 0%,var(--border-faint) 50%,transparent 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
                 )) : recs.map(item => (
-                  <button key={item.food_id} onClick={() => { setSearchQuery(item.name); setShowRecs(false); }} style={{ flexShrink: 0, width: 148, background: "var(--accent)04", border: "1px solid var(--accent)15", borderRadius: 16, padding: 12, cursor: "pointer", position: "relative", transition: "border-color 0.2s", textAlign: "left" }}>
+                  <button key={item.food_id} onClick={() => { setSearchQuery(item.name); setSelectedStation("All"); setActiveTags([]); setSortKey("default"); setShowRecs(false); }} style={{ flexShrink: 0, width: 148, background: "var(--accent)04", border: "1px solid var(--accent)15", borderRadius: 16, padding: 12, cursor: "pointer", position: "relative", transition: "border-color 0.2s", textAlign: "left" }}>
                     <div style={{ position: "absolute", top: 8, right: 8, fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", background: "var(--accent)10", padding: "2px 6px", borderRadius: 99 }}>{Math.round(item.score * 100)}pts</div>
                     <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", lineHeight: 1.3, marginBottom: 4, paddingRight: 32, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name ?? ""}</div>
                     <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 8 }}>{item.station ?? ""}</div>
@@ -525,20 +558,34 @@ export default function MenuBrowser({ onNav }) {
             <div style={{ fontSize: 40, marginBottom: 12 }} aria-hidden="true">{"\uD83C\uDF5D"}</div>
             <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, color: "var(--text-dim)" }}>Nothing found</div>
           </div>
-        ) : filtered.map((item, i) => (
-          <div key={item.food_id} style={{ animation: `fadeSlideUp 0.35s ease ${i * 0.04}s both` }}>
-            <FoodCard
-              item={item}
-              saved={savedFoodIds.has(String(item.food_id))}
-              servings={savedServings[String(item.food_id)] || 1}
-              onServingsChange={updateServings}
-              onSave={handleLogFromCard}
-            onRemove={handleRemoveLog}
-            logging={loggingIds.has(String(item.food_id))}
-            removing={removingIds.has(String(item.food_id))}
-            />
-          </div>
-        ))}
+        ) : (() => {
+          let lastStation = null;
+          return filtered.map((item, i) => {
+            const showHeader = sortKey === "station" && item.station !== lastStation;
+            lastStation = item.station;
+            return (
+              <div key={item.food_id}>
+                {showHeader && (
+                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700, color: "var(--accent)", letterSpacing: "0.06em", textTransform: "uppercase", padding: "16px 0 8px", borderBottom: "1px solid var(--border-faint)", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span>{STATION_ICONS[item.station] ?? ""}</span> {item.station ?? "Other"}
+                  </div>
+                )}
+                <div style={{ animation: `fadeSlideUp 0.35s ease ${i * 0.04}s both` }}>
+                  <FoodCard
+                    item={item}
+                    saved={savedFoodIds.has(String(item.food_id))}
+                    servings={savedServings[String(item.food_id)] || 1}
+                    onServingsChange={updateServings}
+                    onSave={handleLogFromCard}
+                    onRemove={handleRemoveLog}
+                    logging={loggingIds.has(String(item.food_id))}
+                    removing={removingIds.has(String(item.food_id))}
+                  />
+                </div>
+              </div>
+            );
+          });
+        })()}
       </div>
 
     </main>
