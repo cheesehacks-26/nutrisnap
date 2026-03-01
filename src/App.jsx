@@ -5,6 +5,7 @@ import BottomNav    from "./components/BottomNav.jsx";
 import Dashboard    from "./components/Dashboard.jsx";
 import SnapPage     from "./components/SnapPage.jsx";
 import MenuBrowser  from "./components/MenuBrowser.jsx";
+import MyLogPage    from "./components/MyLogPage.jsx";
 import Trends       from "./components/Trends.jsx";
 import ProfilePage  from "./components/ProfilePage.jsx";
 
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { key: "home",    icon: "\uD83C\uDFE0", label: "Home"    },
   { key: "snap",    icon: "\uD83D\uDCF8", label: "Snap"    },
   { key: "menu",    icon: "\uD83D\uDCCB", label: "Menu"    },
+  { key: "log",     icon: "\uD83D\uDCDD", label: "My Log"  },
   { key: "trends",  icon: "\uD83D\uDCC8", label: "Trends"  },
   { key: "profile", icon: "\uD83D\uDC64", label: "Profile" },
 ];
@@ -160,11 +162,45 @@ button, input, select, textarea {
   .bottom-nav        { display: none !important; }
   .app-content main  { padding-bottom: 48px !important; }
   .app-page         { max-width: 1040px; margin: 0 auto; }
+  .app-page--profile { max-width: none; margin: 0; padding-left: 28px; padding-right: 28px; }
 }
 
 @media (min-width: 1024px) and (max-width: 1440px) {
   body { font-size: 15px; }
   .app-page { max-width: 980px; }
+}
+
+/* Profile: focus styles and targets grid */
+.profile-page .profile-input:focus,
+.profile-page button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.profile-page .profile-targets-grid { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 480px) {
+  .profile-page .profile-targets-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Profile: full-width two-column layout + compact so it fits one page on big screens */
+@media (min-width: 900px) {
+  .profile-page .profile-header { padding: 32px 20px 16px; }
+  .profile-page .profile-header h1 { font-size: 22px; }
+  .profile-page .profile-header p { font-size: 12px; margin-top: 4px; }
+  .profile-page .profile-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+    max-width: none !important;
+    padding: 0 20px 20px;
+  }
+  .profile-page .profile-content > .profile-col-left,
+  .profile-page .profile-content > .profile-col-right { max-width: none; }
+  .profile-page .profile-card {
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    border-radius: 16px;
+  }
+  .profile-page .profile-card .profile-section-title { margin-bottom: 10px; }
+  .profile-page .profile-actions { gap: 8px; }
+  .profile-page .profile-actions button { padding: 12px 16px; font-size: 14px; }
 }
 
 /* Trends page: comfortable width and larger components on big screens */
@@ -216,6 +252,7 @@ button, input, select, textarea {
 @keyframes scanline       { 0%{top:-2px;} 50%{top:100%;} 100%{top:-2px;} }
 @keyframes shimmer        { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
 @keyframes pulse-ring     { 0%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(0,245,160,0.4);} 70%{transform:scale(1);box-shadow:0 0 0 16px transparent;} 100%{transform:scale(0.95);box-shadow:0 0 0 0 transparent;} }
+@keyframes spin           { from{transform:rotate(0deg);}                   to{transform:rotate(360deg);} }
 @keyframes spin-slow      { from{transform:rotate(0deg);}                   to{transform:rotate(360deg);} }
 @keyframes waveIn         { 0%{transform:scale(0.5);opacity:0;} 60%{transform:scale(1.1);opacity:1;} 100%{transform:scale(1);} }
 @keyframes analyzing-bar  { 0%{width:0%;} 100%{width:100%;} }
@@ -231,7 +268,8 @@ export default function App() {
   const pages = {
     home:    <Dashboard   onNav={setPage} />,
     snap:    <SnapPage    onNav={setPage} />,
-    menu:    <MenuBrowser />,
+    menu:    <MenuBrowser onNav={setPage} />,
+    log:     <MyLogPage   onNav={setPage} />,
     trends:  <Trends />,
     profile: <ProfilePage onNav={setPage} />,
   };
@@ -244,7 +282,7 @@ export default function App() {
           <AuthGate>
             <SidebarNav active={page} onNav={setPage} />
             <div className="app-content">
-              <div key={page} className="app-page">
+              <div key={page} className={"app-page" + (page === "profile" ? " app-page--profile" : "")}>
                 {pages[page]}
               </div>
               <BottomNav active={page} onNav={setPage} />
@@ -254,4 +292,4 @@ export default function App() {
       </AuthProvider>
     </ThemeProvider>
   );
-}
+}

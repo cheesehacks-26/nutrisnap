@@ -1,12 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../auth.jsx";
 import { apiGet, apiPost, apiDelete, API_BASE } from "../utils/api.js";
-import { TAG_STYLE, STATION_ICONS, CAT_COLOR, TODAY, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND } from "../utils/constants.js";
+import { TAG_STYLE, STATION_ICONS, CAT_COLOR, TODAY, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, MAX_SERVINGS } from "../utils/constants.js";
 
 const DIET_TAGS    = ["Vegan", "Vegetarian", "Gluten-Free"];
 const SORT_OPTIONS = [
   { key: "default",   label: "Default"   },
-  { key: "station",   label: "Station"   },
   { key: "cal_asc",   label: "Cal \u2191"     },
   { key: "cal_desc",  label: "Cal \u2193"     },
   { key: "protein",   label: "Protein \u2191" },
@@ -20,7 +19,7 @@ function FoodCard({ item, saved, servings, logging, removing, onServingsChange, 
   const [localServings, setLocalServings] = useState(servings || 1);
   useEffect(() => { setLocalServings(servings || 1); }, [servings]);
   const updateServings = (next) => {
-    const clamped = Math.max(0.5, Math.min(4, Math.round(next * 2) / 2));
+    const clamped = Math.max(0.5, Math.min(MAX_SERVINGS, Math.round(next * 2) / 2));
     setLocalServings(clamped);
     if (onServingsChange) onServingsChange(item.food_id, clamped);
   };
@@ -201,14 +200,13 @@ function BYOCard({ item, onSave }) {
 
 
 // â”€â”€ Menu Browser Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-export default function MenuBrowser() {
+export default function MenuBrowser({ onNav }) {
   const { token } = useAuth();
   const [selectedStation, setSelectedStation] = useState("All");
   const [activeTags, setActiveTags]           = useState([]);
   const [sortKey, setSortKey]                 = useState("default");
   const [searchQuery, setSearchQuery]         = useState("");
   const [mealType, setMealType]               = useState(() => { const h = new Date().getHours(); return MEAL_FOR_RECOMMEND(h); });
-  const [showSaved, setShowSaved]             = useState(false);
   const [recs, setRecs]                       = useState([]);
   const [recsLoading, setRecsLoading]         = useState(true);
   const [showRecs, setShowRecs]               = useState(true);
@@ -349,25 +347,23 @@ export default function MenuBrowser() {
 
   const filtered = useMemo(() => {
     let list = menuItems;
-    if (showSaved)           list = list.filter(i => savedFoodIds.has(String(i.food_id)));
     if (selectedStation !== "All") list = list.filter(i => i.station === selectedStation);
     if (activeTags.length)   list = list.filter(i => activeTags.every(t => i.food_tags.includes(t)));
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
       list = list.filter(i => {
         if ((i.name || "").toLowerCase().includes(q) || (i.station || "").toLowerCase().includes(q)) return true;
-        if (i.byo_components) return i.byo_components.some(cat => cat.items.some(sub => sub.name.toLowerCase().includes(q)));
+        if (i.byo_components) return i.byo_components.some(cat => (cat.items || []).some(sub => (sub?.name || "").toLowerCase().includes(q)));
         return false;
       });
     }
     switch (sortKey) {
-      case "station":  return [...list].sort((a, b) => (a.station || "").localeCompare(b.station || ""));
       case "cal_asc":  return [...list].sort((a, b) => (a.nutrition?.calories ?? 0) - (b.nutrition?.calories ?? 0));
       case "cal_desc": return [...list].sort((a, b) => (b.nutrition?.calories ?? 0) - (a.nutrition?.calories ?? 0));
       case "protein":  return [...list].sort((a, b) => (b.nutrition?.g_protein ?? 0) - (a.nutrition?.g_protein ?? 0));
       default: return list;
     }
-  }, [selectedStation, activeTags, sortKey, searchQuery, showSaved, menuItems, savedFoodIds]);
+  }, [selectedStation, activeTags, sortKey, searchQuery, menuItems]);
 
   const savedCount = savedFoodIds.size;
   const totalCal = menuItems
@@ -380,10 +376,11 @@ export default function MenuBrowser() {
       <div style={{ padding: "52px 20px 0", position: "sticky", top: 0, background: "var(--bg)", zIndex: 20, paddingBottom: 8, borderBottom: "1px solid var(--border-faint)" }}>
 
         {/* Title row + hall picker */}
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 12 }}>
           <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>Today's <span style={{ color: "var(--accent)" }}>Menu</span></h1>
-          <button onClick={() => setShowHallPicker(p => !p)} aria-label="Change dining hall" aria-expanded={showHallPicker} style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--accent)", background: "var(--accent)08", border: "1px solid var(--accent)20", borderRadius: 99, padding: "4px 10px", cursor: "pointer" }}>
-            {diningHalls.find(h => h.id === selectedHall)?.shortName || "Gordon"} {"\u25BC"}
+          <button onClick={() => setShowHallPicker(p => !p)} aria-label="Change dining hall" aria-expanded={showHallPicker} style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, fontWeight: 600, color: "var(--accent)", background: "var(--accent)08", border: "1px solid var(--accent)20", borderRadius: 99, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <span>{diningHalls.find(h => h.id === selectedHall)?.shortName || "Gordon"}</span>
+            <span style={{ fontSize: 12, transition: "transform 0.2s", transform: showHallPicker ? "rotate(180deg)" : "none" }}>{"\u25BC"}</span>
           </button>
         </div>
 
@@ -434,8 +431,8 @@ export default function MenuBrowser() {
         </div>
       </div>
 
-      {/* Station filter scroll */}
-      <div style={{ padding: "4px 20px 0", overflowX: "auto", display: "flex", gap: 8 }} role="group" aria-label="Filter by station">
+      {/* Station filter scroll — touch-action so vertical page scroll works when over this strip */}
+      <div style={{ padding: "4px 20px 0", overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", touchAction: "pan-x", display: "flex", gap: 8 }} role="group" aria-label="Filter by station">
         {stations.map(s => (
           <button key={s} onClick={() => setSelectedStation(s)} aria-pressed={selectedStation === s} style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 12, cursor: "pointer", background: selectedStation === s ? "color-mix(in srgb,var(--accent) 15%,transparent)" : "transparent", border: `2px solid ${selectedStation === s ? "var(--accent)" : "var(--border-faint)"}`, fontWeight: selectedStation === s ? 700 : 400, fontSize: 12, color: selectedStation === s ? "var(--accent)" : "var(--text-muted)", display: "flex", alignItems: "center", gap: 5, transition: "all 0.2s", boxShadow: selectedStation === s ? "0 0 0 2px var(--accent)20" : "none" }}>
             {s !== "All" && STATION_ICONS[s] && <span aria-hidden="true">{STATION_ICONS[s]}</span>}{s}
@@ -443,41 +440,52 @@ export default function MenuBrowser() {
         ))}
       </div>
 
-      {/* Count + saved toggle */}
+      {/* Count + My Log link */}
       <div style={{ padding: "8px 20px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>{filtered.length} ITEM{filtered.length !== 1 ? "S" : ""}</span>
-        <button onClick={() => setShowSaved(s => !s)} aria-pressed={showSaved} style={{ background: showSaved ? "var(--accent)10" : "var(--bg-input)", border: `1px solid ${showSaved ? "var(--accent)30" : "var(--border-faint)"}`, borderRadius: 99, padding: "4px 12px", cursor: "pointer", fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.06em", color: showSaved ? "var(--accent)" : "var(--text-muted)", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6 }}>
-          {savedCount > 0 && <span style={{ background: "var(--accent)", color: "var(--accent-contrast)", borderRadius: "50%", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 8 }}>{savedCount}</span>}
-          MY LOG
-        </button>
+        {onNav && (
+          <button onClick={() => onNav("log")} style={{ background: "var(--accent)10", border: "1px solid var(--accent)30", borderRadius: 99, padding: "6px 14px", cursor: "pointer", fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.06em", color: "var(--accent)", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6 }}>
+            {savedCount > 0 && <span style={{ background: "var(--accent)", color: "var(--accent-contrast)", borderRadius: "50%", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 8 }}>{savedCount}</span>}
+            MY LOG
+          </button>
+        )}
       </div>
 
-      {/* Recommended strip */}
-      {(recsLoading || recs.length > 0) && showRecs && (
+      {/* Recommended — header with dropdown arrow to show/hide list */}
+      {(recsLoading || recs.length > 0) && (
         <div style={{ padding: "12px 20px 4px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" ? 4 : 10 }}>
+          <button
+            onClick={() => setShowRecs(s => !s)}
+            aria-expanded={showRecs}
+            aria-label={showRecs ? "Collapse recommendations" : "Expand recommendations"}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: 0, marginBottom: showRecs ? (MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" ? 4 : 10) : 0, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+          >
             <div>
               <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>{"\u2022"} Recommended <span style={{ color: "var(--accent)" }}>for you</span></div>
               {MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" && <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>Dining closed — showing next: {effectiveMealForRecs}</div>}
             </div>
-            <button onClick={() => setShowRecs(false)} aria-label="Hide recommendations" style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.06em" }}>HIDE</button>
-          </div>
-          <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
-            {recsLoading ? [0, 1, 2].map(i => (
-              <div key={i} style={{ flexShrink: 0, width: 148, height: 110, borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border-faint)", backgroundImage: "linear-gradient(90deg,transparent 0%,var(--border-faint) 50%,transparent 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
-            )) : recs.map(item => (
-              <button key={item.food_id} onClick={() => { setSearchQuery(item.name); setShowRecs(false); }} style={{ flexShrink: 0, width: 148, background: "var(--accent)04", border: "1px solid var(--accent)15", borderRadius: 16, padding: 12, cursor: "pointer", position: "relative", transition: "border-color 0.2s", textAlign: "left" }}>
-                <div style={{ position: "absolute", top: 8, right: 8, fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", background: "var(--accent)10", padding: "2px 6px", borderRadius: 99 }}>{Math.round(item.score * 100)}pts</div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", lineHeight: 1.3, marginBottom: 4, paddingRight: 32, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name ?? ""}</div>
-                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 8 }}>{item.station ?? ""}</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <div><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--cal-color)" }}>{item.nutrition?.calories ?? "—"}</span><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}> kcal</span></div>
-                  <div><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--protein)" }}>{item.nutrition?.g_protein ?? "—"}g</span><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}> pro</span></div>
-                </div>
-              </button>
-            ))}
-          </div>
-          <div style={{ height: 1, background: "var(--border-faint)", margin: "8px 0 4px" }} />
+            <span style={{ color: "var(--text-dim)", fontSize: 14, transition: "transform 0.2s", transform: showRecs ? "rotate(0deg)" : "rotate(-90deg)" }} aria-hidden="true">{"\u25BC"}</span>
+          </button>
+          {showRecs && (
+            <>
+              <div style={{ display: "flex", gap: 10, overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", touchAction: "pan-x", paddingBottom: 8 }}>
+                {recsLoading ? [0, 1, 2].map(i => (
+                  <div key={i} style={{ flexShrink: 0, width: 148, height: 110, borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border-faint)", backgroundImage: "linear-gradient(90deg,transparent 0%,var(--border-faint) 50%,transparent 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
+                )) : recs.map(item => (
+                  <button key={item.food_id} onClick={() => { setSearchQuery(item.name); setShowRecs(false); }} style={{ flexShrink: 0, width: 148, background: "var(--accent)04", border: "1px solid var(--accent)15", borderRadius: 16, padding: 12, cursor: "pointer", position: "relative", transition: "border-color 0.2s", textAlign: "left" }}>
+                    <div style={{ position: "absolute", top: 8, right: 8, fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", background: "var(--accent)10", padding: "2px 6px", borderRadius: 99 }}>{Math.round(item.score * 100)}pts</div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", lineHeight: 1.3, marginBottom: 4, paddingRight: 32, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name ?? ""}</div>
+                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 8 }}>{item.station ?? ""}</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <div><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--cal-color)" }}>{item.nutrition?.calories ?? "—"}</span><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}> kcal</span></div>
+                      <div><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--protein)" }}>{item.nutrition?.g_protein ?? "—"}g</span><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}> pro</span></div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div style={{ height: 1, background: "var(--border-faint)", margin: "8px 0 4px" }} />
+            </>
+          )}
         </div>
       )}
 

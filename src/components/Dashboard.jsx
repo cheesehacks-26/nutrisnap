@@ -122,6 +122,7 @@ export default function Dashboard({ onNav }) {
   const [recsRemaining, setRecsRemaining] = useState(null);
   const [recsMeal, setRecsMeal]           = useState("");
   const [recsLoading, setRecsLoading]     = useState(true);
+  const [showRecs, setShowRecs]           = useState(true);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState("");
   const [deletingLogId, setDeletingLogId] = useState(null);
@@ -236,8 +237,8 @@ export default function Dashboard({ onNav }) {
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--border-faint)" }}>
                 {[
-                  { label: "meals",   value: todayLogs.length },
-                  { label: "% cal",   value: `${Math.round(totals.calories / calGoal * 100)}%` },
+                  { label: "meals",  value: todayLogs.length },
+                  { label: "cal",    value: `${Math.round(totals.calories / calGoal * 100)}%` },
                   { label: "protein", value: `${Math.round(totals.g_protein / protGoal * 100)}%` },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ flex: 1, textAlign: "center", background: "var(--bg-input)", borderRadius: 12, padding: "10px 6px" }}>
@@ -283,40 +284,52 @@ export default function Dashboard({ onNav }) {
           ))}
         </section>
 
-        {/* Recommendations */}
+        {/* Recommendations — dropdown arrow to show/hide list */}
         <section style={{ marginBottom: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-            <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 17, color: "var(--text-primary)" }}>Recommended <span style={{ color: "var(--accent)" }}>{recsMeal || "today"}</span>{MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" ? " (next)" : ""}</h2>
-            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", textTransform: "uppercase" }}>{recsMeal} {"\u00B7"} All Halls</span>
-          </div>
-          {recsRemaining && (
-            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
-              You need <span style={{ color: "var(--protein)" }}>{recsRemaining.protein_g}g more protein</span> and <span style={{ color: "var(--cal-color)" }}>{recsRemaining.calories} kcal</span> today.
-            </p>
-          )}
-          {recsLoading ? (
-            <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }}>
-              {[0, 1, 2].map(i => <div key={i} style={{ flexShrink: 0, width: 160, height: 130, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, animation: "shimmer 1.5s infinite", backgroundImage: "linear-gradient(90deg,transparent 0%,var(--border-faint) 50%,transparent 100%)", backgroundSize: "200% 100%" }} />)}
-            </div>
-          ) : recs.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-dim)", padding: "16px 0" }}>No recommendations available right now.</p>
-          ) : (
-            <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }} role="list">
-              {recs.map(item => (
-                <div key={item.food_id} role="listitem" style={{ flexShrink: 0, width: 160, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, padding: 14, cursor: "pointer", position: "relative" }}>
-                  {item.is_saved && <div style={{ position: "absolute", top: 10, right: 10, fontSize: 12 }} aria-label="Saved">🔖</div>}
-                  <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 4, lineHeight: 1.3, paddingRight: item.is_saved ? 16 : 0 }}>{item.name}</div>
-                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 8 }}>{item.station}</div>
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
-                    {(item.food_tags || []).map(t => <span key={t} style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: TAG_COLOR[t] || "var(--text-secondary)", background: `${TAG_COLOR[t] || "#94a3b8"}15`, padding: "2px 7px", borderRadius: 99 }}>{t}</span>)}
-                  </div>
-                  <div style={{ borderTop: "1px solid var(--border-faint)", paddingTop: 10, display: "flex", justifyContent: "space-between" }}>
-                    <div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--cal-color)" }}>{item.nutrition.calories}</div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}>kcal</div></div>
-                    <div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--protein)" }}>{item.nutrition.g_protein}g</div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}>protein</div></div>
-                  </div>
+          <button
+            onClick={() => setShowRecs(s => !s)}
+            aria-expanded={showRecs}
+            aria-label={showRecs ? "Collapse recommendations" : "Expand recommendations"}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", width: "100%", padding: 0, marginBottom: showRecs ? 12 : 0, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+          >
+            <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 17, color: "var(--text-primary)", margin: 0 }}>Recommended <span style={{ color: "var(--accent)" }}>{recsMeal || "today"}</span>{MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" ? " (next)" : ""}</h2>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", textTransform: "uppercase" }}>{recsMeal} {"\u00B7"} All Halls</span>
+              <span style={{ color: "var(--text-dim)", fontSize: 14, transition: "transform 0.2s", transform: showRecs ? "rotate(0deg)" : "rotate(-90deg)" }} aria-hidden="true">{"\u25BC"}</span>
+            </span>
+          </button>
+          {showRecs && (
+            <>
+              {recsRemaining && (
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
+                  You need <span style={{ color: "var(--protein)" }}>{recsRemaining.protein_g}g more protein</span> and <span style={{ color: "var(--cal-color)" }}>{recsRemaining.calories} kcal</span> today.
+                </p>
+              )}
+              {recsLoading ? (
+                <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }}>
+                  {[0, 1, 2].map(i => <div key={i} style={{ flexShrink: 0, width: 160, height: 130, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, animation: "shimmer 1.5s infinite", backgroundImage: "linear-gradient(90deg,transparent 0%,var(--border-faint) 50%,transparent 100%)", backgroundSize: "200% 100%" }} />)}
                 </div>
-              ))}
-            </div>
+              ) : recs.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--text-dim)", padding: "16px 0" }}>No recommendations available right now.</p>
+              ) : (
+                <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }} role="list">
+                  {recs.map(item => (
+                    <div key={item.food_id} role="listitem" style={{ flexShrink: 0, width: 160, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, padding: 14, cursor: "pointer", position: "relative" }}>
+                      {item.is_saved && <div style={{ position: "absolute", top: 10, right: 10, fontSize: 12 }} aria-label="Saved">🔖</div>}
+                      <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 4, lineHeight: 1.3, paddingRight: item.is_saved ? 16 : 0 }}>{item.name}</div>
+                      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 8 }}>{item.station}</div>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
+                        {(item.food_tags || []).map(t => <span key={t} style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: TAG_COLOR[t] || "var(--text-secondary)", background: `${TAG_COLOR[t] || "#94a3b8"}15`, padding: "2px 7px", borderRadius: 99 }}>{t}</span>)}
+                      </div>
+                      <div style={{ borderTop: "1px solid var(--border-faint)", paddingTop: 10, display: "flex", justifyContent: "space-between" }}>
+                        <div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--cal-color)" }}>{item.nutrition.calories}</div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}>kcal</div></div>
+                        <div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--protein)" }}>{item.nutrition.g_protein}g</div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}>protein</div></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>
