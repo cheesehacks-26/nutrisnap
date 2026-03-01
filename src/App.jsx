@@ -201,11 +201,35 @@ function MealCard({meal}) {
   );
 }
 
+const API_BASE = "https://badgerbite-api.onrender.com";
+const MEAL_FOR_HOUR = (h) => h < 11 ? "breakfast" : h < 16 ? "lunch" : "dinner";
+
 function Dashboard({onNav}) {
-  const { logout, user } = useAuth();
+  const { logout, user, token } = useAuth();
   const [nudges,setNudges]=useState([{nudge_id:"n1",type:"low_protein",message:"Low protein 3 days in a row — try adding eggs from Eggcetera tonight",dismissed_at:null}]);
   const [greeting,setGreeting]=useState("");
+  const [recs,setRecs]=useState([]);
+  const [recsRemaining,setRecsRemaining]=useState(null);
+  const [recsMeal,setRecsMeal]=useState("");
+  const [recsLoading,setRecsLoading]=useState(true);
+
   useEffect(()=>{const h=new Date().getHours();setGreeting(h<12?"Good morning":h<17?"Good afternoon":"Good evening");},[]);
+
+  useEffect(()=>{
+    const meal=MEAL_FOR_HOUR(new Date().getHours());
+    setRecsMeal(meal);
+    fetch(`${API_BASE}/api/recommend?meal=${meal}`,{headers:{Authorization:`Bearer ${token}`}})
+      .then(r=>r.json())
+      .then(data=>{
+        // Flatten all halls, sort by score, take top 5
+        const all=Object.entries(data.halls||{}).flatMap(([hallId,items])=>items.map(i=>({...i,hallId})));
+        all.sort((a,b)=>b.score-a.score);
+        setRecs(all.slice(0,5));
+        setRecsRemaining(data.remaining||null);
+      })
+      .catch(()=>{})
+      .finally(()=>setRecsLoading(false));
+  },[token]);
   const totals=TODAY_MEALS.reduce((a,m)=>({calories:a.calories+m.total_nutrition.calories,g_protein:a.g_protein+m.total_nutrition.g_protein,g_carbs:a.g_carbs+m.total_nutrition.g_carbs,g_fat:a.g_fat+m.total_nutrition.g_fat}),{calories:0,g_protein:0,g_carbs:0,g_fat:0});
 
   return (
@@ -281,27 +305,40 @@ function Dashboard({onNav}) {
 
         <div style={{marginBottom:24}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:12}}>
-            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:17}}>Recommended <span style={{color:"#00f5a0"}}>tonight</span></div>
-            <span style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#334155"}}>GORDON · DINNER</span>
+            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:17}}>Recommended <span style={{color:"#00f5a0"}}>{recsMeal||"today"}</span></div>
+            <span style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#334155",textTransform:"uppercase"}}>{recsMeal} · All Halls</span>
           </div>
-          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#475569",marginBottom:14}}>
-            You need <span style={{color:"#60a5fa"}}>{USER.protein_goal-totals.g_protein}g more protein</span> today.
-          </div>
-          <div style={{display:"flex",gap:12,overflowX:"auto",paddingBottom:8}}>
-            {RECOMMENDED.map(item=>(
-              <div key={item.food_id} style={{flexShrink:0,width:160,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:14,cursor:"pointer"}}>
-                <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:13,color:"#f1f5f9",marginBottom:6,lineHeight:1.3}}>{item.name}</div>
-                <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#475569",marginBottom:10}}>{item.station}</div>
-                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:10}}>
-                  {item.food_tags.map(t=><span key={t} style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:TAG_COLOR[t],background:`${TAG_COLOR[t]}15`,padding:"2px 7px",borderRadius:99}}>{t}</span>)}
+          {recsRemaining&&(
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#475569",marginBottom:14}}>
+              You need <span style={{color:"#60a5fa"}}>{recsRemaining.protein_g}g more protein</span> and <span style={{color:"#f472b6"}}>{recsRemaining.calories} kcal</span> today.
+            </div>
+          )}
+          {recsLoading?(
+            <div style={{display:"flex",gap:12,overflowX:"auto",paddingBottom:8}}>
+              {[0,1,2].map(i=>(
+                <div key={i} style={{flexShrink:0,width:160,height:130,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,animation:"shimmer 1.5s infinite",backgroundImage:"linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.04) 50%,transparent 100%)",backgroundSize:"200% 100%"}}/>
+              ))}
+            </div>
+          ):recs.length===0?(
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#334155",padding:"16px 0"}}>No recommendations available right now.</div>
+          ):(
+            <div style={{display:"flex",gap:12,overflowX:"auto",paddingBottom:8}}>
+              {recs.map(item=>(
+                <div key={item.food_id} style={{flexShrink:0,width:160,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:14,cursor:"pointer",position:"relative"}}>
+                  {item.is_saved&&<div style={{position:"absolute",top:10,right:10,fontSize:12}}>🔖</div>}
+                  <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:13,color:"#f1f5f9",marginBottom:4,lineHeight:1.3,paddingRight:item.is_saved?16:0}}>{item.name}</div>
+                  <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#475569",marginBottom:8}}>{item.station}</div>
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:10}}>
+                    {(item.food_tags||[]).map(t=><span key={t} style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:TAG_COLOR[t]||"#94a3b8",background:`${TAG_COLOR[t]||"#94a3b8"}15`,padding:"2px 7px",borderRadius:99}}>{t}</span>)}
+                  </div>
+                  <div style={{borderTop:"1px solid rgba(255,255,255,0.05)",paddingTop:10,display:"flex",justifyContent:"space-between"}}>
+                    <div><div style={{fontFamily:"'Space Mono',monospace",fontSize:13,color:"#f472b6"}}>{item.nutrition.calories}</div><div style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:"#334155"}}>kcal</div></div>
+                    <div><div style={{fontFamily:"'Space Mono',monospace",fontSize:13,color:"#60a5fa"}}>{item.nutrition.g_protein}g</div><div style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:"#334155"}}>protein</div></div>
+                  </div>
                 </div>
-                <div style={{borderTop:"1px solid rgba(255,255,255,0.05)",paddingTop:10,display:"flex",justifyContent:"space-between"}}>
-                  <div><div style={{fontFamily:"'Space Mono',monospace",fontSize:13,color:"#f472b6"}}>{item.nutrition.calories}</div><div style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:"#334155"}}>kcal</div></div>
-                  <div><div style={{fontFamily:"'Space Mono',monospace",fontSize:13,color:"#60a5fa"}}>{item.nutrition.g_protein}g</div><div style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:"#334155"}}>protein</div></div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:20,padding:18,marginBottom:8}}>
