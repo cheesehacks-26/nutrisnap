@@ -162,7 +162,7 @@ function MacroRow({label,consumed,goal,color}) {
   );
 }
 
-function MealCard({meal}) {
+function MealCard({meal,onDelete}) {
   const [open,setOpen]=useState(false);
   const time=new Date(meal.logged_at).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
   return (
@@ -187,12 +187,17 @@ function MealCard({meal}) {
       {open && (
         <div style={{padding:"0 16px 14px",borderTop:"1px solid rgba(255,255,255,0.04)",animation:"fadeIn 0.2s ease"}}>
           {meal.dishes.map(d=>(
-            <div key={d.food_id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
-              <div>
+            <div key={d.food_id||d.log_id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
+              <div style={{flex:1}}>
                 <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#cbd5e1"}}>{d.name}</div>
                 <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#334155",marginTop:2}}>{d.station} · ×{d.servings}</div>
               </div>
-              <div style={{fontFamily:"'Space Mono',monospace",fontSize:12,color:"#64748b"}}>{d.nutrition.calories} kcal</div>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{fontFamily:"'Space Mono',monospace",fontSize:12,color:"#64748b"}}>{d.nutrition.calories} kcal</div>
+                {onDelete&&d.log_id&&(
+                  <button onClick={e=>{e.stopPropagation();onDelete(d.log_id);}} style={{background:"rgba(248,113,113,0.1)",border:"1px solid rgba(248,113,113,0.2)",borderRadius:8,padding:"3px 8px",cursor:"pointer",fontFamily:"'Space Mono',monospace",fontSize:9,color:"#f87171"}}>✕</button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -250,7 +255,7 @@ function Dashboard({onNav}) {
       (lData.logs||[]).forEach(log=>{
         const mt=log.meal_type||"snack";
         if(!groups[mt])groups[mt]={meal_id:mt,meal_type:mt,logged_at:log.logged_at,dishes:[],total_nutrition:{calories:0,g_protein:0,g_carbs:0,g_fat:0}};
-        groups[mt].dishes.push({food_id:log.food_id||log.id,name:log.food_name,station:log.hall||"",servings:log.quantity||1,nutrition:{calories:log.calories||0,g_protein:log.protein_g||0,g_carbs:log.carbs_g||0,g_fat:log.fat_g||0,mg_sodium:log.sodium_mg||0}});
+        groups[mt].dishes.push({log_id:log.id,food_id:log.food_id||log.id,name:log.food_name,station:log.hall||"",servings:log.quantity||1,nutrition:{calories:log.calories||0,g_protein:log.protein_g||0,g_carbs:log.carbs_g||0,g_fat:log.fat_g||0,mg_sodium:log.sodium_mg||0}});
         groups[mt].total_nutrition.calories+=log.calories||0;
         groups[mt].total_nutrition.g_protein+=log.protein_g||0;
         groups[mt].total_nutrition.g_carbs+=log.carbs_g||0;
@@ -266,7 +271,7 @@ function Dashboard({onNav}) {
     setRecsMeal(meal);
     apiGet(`/api/recommend?meal=${meal}`, token)
       .then(data=>{
-        const all=Object.entries(data.halls||{}).flatMap(([,items])=>items);
+        const all=Object.entries(data.halls||{}).flatMap(([,items])=>items).filter(i=>i.name&&i.name.trim());
         all.sort((a,b)=>b.score-a.score);
         setRecs(all.slice(0,5));
         setRecsRemaining(data.remaining||null);
@@ -281,6 +286,26 @@ function Dashboard({onNav}) {
   const fatGoal  = profile?.fat_g           || 65;
   const totals = { calories:todayTotals.calories||0, g_protein:todayTotals.protein_g||0, g_carbs:todayTotals.carbs_g||0, g_fat:todayTotals.fat_g||0 };
   const displayName = profile?.display_name || user?.email?.split("@")[0] || "there";
+
+  const handleDeleteLog = async (logId) => {
+    try {
+      await apiDelete(`/api/log/${logId}`, token);
+      // Re-fetch today's logs
+      const lData = await apiGet(`/api/log?date=${TODAY}`, token);
+      const groups={};
+      (lData.logs||[]).forEach(log=>{
+        const mt=log.meal_type||"snack";
+        if(!groups[mt])groups[mt]={meal_id:mt,meal_type:mt,logged_at:log.logged_at,dishes:[],total_nutrition:{calories:0,g_protein:0,g_carbs:0,g_fat:0}};
+        groups[mt].dishes.push({log_id:log.id,food_id:log.food_id||log.id,name:log.food_name,station:log.hall||"",servings:log.quantity||1,nutrition:{calories:log.calories||0,g_protein:log.protein_g||0,g_carbs:log.carbs_g||0,g_fat:log.fat_g||0,mg_sodium:log.sodium_mg||0}});
+        groups[mt].total_nutrition.calories+=log.calories||0;
+        groups[mt].total_nutrition.g_protein+=log.protein_g||0;
+        groups[mt].total_nutrition.g_carbs+=log.carbs_g||0;
+        groups[mt].total_nutrition.g_fat+=log.fat_g||0;
+      });
+      setTodayLogs(Object.values(groups));
+      setTodayTotals(lData.totals||{calories:0,protein_g:0,carbs_g:0,fat_g:0});
+    } catch(e){}
+  };
   const goalLabel = profile?.goal ? profile.goal.replace("_"," ") : "maintain";
   const loggedMealTypes = new Set(todayLogs.map(m=>m.meal_type));
   const unloggedMeals = ["breakfast","lunch","dinner"].filter(m=>!loggedMealTypes.has(m));
@@ -346,7 +371,7 @@ function Dashboard({onNav}) {
           ):todayLogs.length===0?(
             <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#334155",padding:"8px 0 12px"}}>Nothing logged yet today.</div>
           ):(
-            todayLogs.map(m=><MealCard key={m.meal_id} meal={m}/>)
+            todayLogs.map(m=><MealCard key={m.meal_id} meal={m} onDelete={handleDeleteLog}/>)
           )}
           {unloggedMeals.map(meal=>(
             <div key={meal} style={{border:"1px dashed rgba(255,255,255,0.07)",borderRadius:18,padding:16,display:"flex",alignItems:"center",gap:12,cursor:"pointer",marginBottom:8}} onClick={()=>onNav("snap")}>
@@ -576,10 +601,10 @@ function SnapPage({onNav}) {
     const meal=MEAL_FOR_HOUR(new Date().getHours());
     fetch(`${API_BASE}/api/menu?hall=gordon-avenue-market&meal=${meal}`)
       .then(r=>r.json()).then(d=>{if(d.items&&d.items.length>0){
-        setLiveMenu(d.items.map(i=>({...i,nutrition:{calories:i.nutrition.calories,g_protein:i.nutrition.g_protein,g_carbs:i.nutrition.g_carbs,g_fat:i.nutrition.g_fat,g_sugar:i.nutrition.g_sugar,mg_sodium:i.nutrition.mg_sodium},food_tags:i.food_tags||[]})));
+        setLiveMenu(d.items.filter(i=>i.name&&i.name.trim()).map(i=>({...i,nutrition:{calories:i.nutrition.calories,g_protein:i.nutrition.g_protein,g_carbs:i.nutrition.g_carbs,g_fat:i.nutrition.g_fat,g_sugar:i.nutrition.g_sugar,mg_sodium:i.nutrition.mg_sodium},food_tags:i.food_tags||[]})));
       }}).catch(()=>{});
   },[]);
-  const filteredMenu=liveMenu.filter(i=>(i.name||"").toLowerCase().includes(searchQuery.toLowerCase())||((i.station||"").toLowerCase().includes(searchQuery.toLowerCase())));
+  const filteredMenu=liveMenu.filter(i=>(i.name||"").toLowerCase().includes(searchQuery.toLowerCase())||(i.station||"").toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div style={{paddingBottom:100,animation:"pageIn 0.35s ease"}}>
@@ -803,13 +828,23 @@ function MenuBrowser() {
   const [recs,setRecs]=useState([]);
   const [recsLoading,setRecsLoading]=useState(true);
   const [showRecs,setShowRecs]=useState(true);
+  const [diningHalls,setDiningHalls]=useState([]);
+  const [selectedHall,setSelectedHall]=useState("gordon-avenue-market");
+  const [showHallPicker,setShowHallPicker]=useState(false);
+
+  useEffect(()=>{
+    fetch(`${API_BASE}/api/dining-halls`)
+      .then(r=>r.json())
+      .then(d=>setDiningHalls(d.dining_halls||[]))
+      .catch(()=>{});
+  },[]);
 
   useEffect(()=>{
     setRecsLoading(true);
-    fetch(`https://badgerbite-api.onrender.com/api/recommend?meal=${mealType}`,{headers:{Authorization:`Bearer ${token}`}})
+    fetch(`${API_BASE}/api/recommend?meal=${mealType}&hall=${selectedHall}`,{headers:{Authorization:`Bearer ${token}`}})
       .then(r=>r.json())
       .then(data=>{
-        const all=Object.entries(data.halls||{}).flatMap(([,items])=>items);
+        const all=Object.entries(data.halls||{}).flatMap(([,items])=>items).filter(i=>i.name&&i.name.trim());
         all.sort((a,b)=>b.score-a.score);
         setRecs(all.slice(0,6));
       })
@@ -823,14 +858,14 @@ function MenuBrowser() {
 
   useEffect(()=>{
     setMenuLoading(true);
-    fetch(`${API_BASE}/api/menu?hall=gordon-avenue-market&meal=${mealType}`)
+    fetch(`${API_BASE}/api/menu?hall=${selectedHall}&meal=${mealType}`)
       .then(r=>r.json())
       .then(d=>{
         if(d.items&&d.items.length>0){
-          setMenuItems(d.items.map(i=>({...i,nutrition:{calories:i.nutrition.calories,g_protein:i.nutrition.g_protein,g_carbs:i.nutrition.g_carbs,g_fat:i.nutrition.g_fat,g_sugar:i.nutrition.g_sugar,mg_sodium:i.nutrition.mg_sodium},food_tags:i.food_tags||[]})));
+          setMenuItems(d.items.filter(i=>i.name&&i.name.trim()).map(i=>({...i,nutrition:{calories:i.nutrition.calories,g_protein:i.nutrition.g_protein,g_carbs:i.nutrition.g_carbs,g_fat:i.nutrition.g_fat,g_sugar:i.nutrition.g_sugar,mg_sodium:i.nutrition.mg_sodium},food_tags:i.food_tags||[]})));
         }
       }).catch(()=>{}).finally(()=>setMenuLoading(false));
-  },[mealType]);
+  },[mealType,selectedHall]);
 
   const toggleTag=tag=>setActiveTags(p=>p.includes(tag)?p.filter(t=>t!==tag):[...p,tag]);
   const [savedFoodIds,setSavedFoodIds]=useState(new Set());
@@ -869,7 +904,7 @@ function MenuBrowser() {
         carbs_g:item.nutrition.g_carbs||0,fat_g:item.nutrition.g_fat||0,
         fiber_g:item.nutrition.g_fiber||0,sugar_g:item.nutrition.g_sugar||0,
         sodium_mg:item.nutrition.mg_sodium||0,
-        hall:"gordon-avenue-market",meal_type:mealType,
+        hall:selectedHall,meal_type:mealType,
       })));
       setSaved({});
     }catch(e){}
@@ -881,7 +916,7 @@ function MenuBrowser() {
     if(showSaved)list=list.filter(i=>savedFoodIds.has(String(i.food_id)));
     if(selectedStation!=="All")list=list.filter(i=>i.station===selectedStation);
     if(activeTags.length)list=list.filter(i=>activeTags.every(t=>i.food_tags.includes(t)));
-    if(searchQuery.trim()){const q=searchQuery.toLowerCase();list=list.filter(i=>i.name.toLowerCase().includes(q)||i.station.toLowerCase().includes(q));}
+    if(searchQuery.trim()){const q=searchQuery.toLowerCase();list=list.filter(i=>(i.name||'').toLowerCase().includes(q)||(i.station||'').toLowerCase().includes(q));}
     switch(sortKey){
       case"cal_asc":return[...list].sort((a,b)=>a.nutrition.calories-b.nutrition.calories);
       case"cal_desc":return[...list].sort((a,b)=>b.nutrition.calories-a.nutrition.calories);
@@ -898,8 +933,19 @@ function MenuBrowser() {
       <div style={{padding:"52px 20px 0",position:"sticky",top:0,background:"linear-gradient(180deg,#06080f 70%,transparent)",zIndex:20,paddingBottom:8}}>
         <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:4}}>
           <div style={{fontFamily:"'Syne',sans-serif",fontSize:26,fontWeight:800,letterSpacing:"-0.02em"}}>Today's <span style={{color:"#00f5a0"}}>Menu</span></div>
-          <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#334155"}}>Gordon Ave</div>
+          <button onClick={()=>setShowHallPicker(p=>!p)} style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#00f5a0",background:"rgba(0,245,160,0.08)",border:"1px solid rgba(0,245,160,0.2)",borderRadius:99,padding:"4px 10px",cursor:"pointer"}}>
+            {diningHalls.find(h=>h.id===selectedHall)?.shortName||"Gordon"} ▾
+          </button>
         </div>
+        {showHallPicker&&(
+          <div style={{background:"rgba(10,12,20,0.98)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,padding:8,marginBottom:10,zIndex:50,position:"relative"}}>
+            {diningHalls.map(h=>(
+              <button key={h.id} onClick={()=>{setSelectedHall(h.id);setShowHallPicker(false);setSelectedStation("All");}} style={{display:"block",width:"100%",textAlign:"left",padding:"10px 14px",borderRadius:12,border:"none",cursor:"pointer",background:selectedHall===h.id?"rgba(0,245,160,0.1)":"transparent",fontFamily:"'DM Sans',sans-serif",fontSize:13,color:selectedHall===h.id?"#00f5a0":"#94a3b8",fontWeight:selectedHall===h.id?700:400,transition:"all 0.15s"}}>
+                {h.name}
+              </button>
+            ))}
+          </div>
+        )}
         <div style={{display:"flex",gap:6,marginBottom:14}}>
           {["breakfast","lunch","dinner"].map(m=>(
             <button key={m} onClick={()=>setMealType(m)} style={{flex:1,padding:"8px 0",borderRadius:12,border:`1px solid ${mealType===m?"rgba(0,245,160,0.3)":"transparent"}`,cursor:"pointer",background:mealType===m?"rgba(0,245,160,0.12)":"rgba(255,255,255,0.03)",fontFamily:"'Space Mono',monospace",fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",color:mealType===m?"#00f5a0":"#334155",transition:"all 0.2s"}}>{m}</button>
@@ -1181,7 +1227,7 @@ function Trends() {
                 <button key={m.key} onClick={()=>setActiveMetric(m.key)} style={{flex:1,padding:"9px 0",borderRadius:14,border:`1px solid ${activeMetric===m.key?`${m.color}40`:"rgba(255,255,255,0.05)"}`,cursor:"pointer",background:activeMetric===m.key?`${m.color}18`:"rgba(255,255,255,0.03)",fontFamily:"'Space Mono',monospace",fontSize:9,letterSpacing:"0.05em",color:activeMetric===m.key?m.color:"#334155",transition:"all 0.2s"}}>{m.label}</button>
               ))}
             </div>
-            {(()=>{const m=MACRO_META.find(x=>x.key===activeMetric);return(
+            {(()=>{const m=macroMeta.find(x=>x.key===activeMetric);return(
               <div style={{background:"rgba(15,20,40,0.9)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:22,padding:"18px 16px 10px",marginBottom:16,position:"relative",overflow:"hidden"}}>
                 <div style={{position:"absolute",top:0,left:0,right:0,height:1,background:`linear-gradient(90deg,transparent,${m.color}40,transparent)`}}/>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
@@ -1194,8 +1240,8 @@ function Trends() {
             <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:18,overflow:"hidden"}}>
               {weekData.map((d,i)=>{
                 const meta=macroMeta.find(m=>m.key===activeMetric),val=d[activeMetric],pct=Math.min(100,(val/meta.goal)*100),over=val>meta.goal;
-                return(<div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderBottom:i<6?"1px solid rgba(255,255,255,0.03)":"none",background:d.day==="Today"?"rgba(255,255,255,0.02)":"transparent"}}>
-                  <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:d.day==="Today"?"#f1f5f9":"#334155",width:28,flexShrink:0}}>{d.day==="Today"?"NOW":d.day}</div>
+                return(<div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderBottom:i<6?"1px solid rgba(255,255,255,0.03)":"none",background:d.isToday?"rgba(255,255,255,0.02)":"transparent"}}>
+                  <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:d.isToday?"#f1f5f9":"#334155",width:28,flexShrink:0}}>{d.isToday?"NOW":d.day}</div>
                   <div style={{flex:1,height:5,background:"rgba(255,255,255,0.04)",borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:over?"#f87171":meta.color,borderRadius:99}}/></div>
                   <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:over?"#f87171":"#64748b",width:36,textAlign:"right",flexShrink:0}}>{val}g</div>
                 </div>);
@@ -1220,7 +1266,7 @@ function Trends() {
             <div style={{marginTop:20,background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:20,padding:18}}>
               <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,marginBottom:14}}>Logging streak</div>
               <div style={{display:"flex",gap:8}}>
-                {WEEK_DATA.map((d,i)=>(
+                {weekData.map((d,i)=>(
                   <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
                     <div style={{width:"100%",aspectRatio:"1",borderRadius:10,background:d.meals>0?"linear-gradient(135deg,#00f5a0,#00d9f5)":"rgba(255,255,255,0.04)",border:d.isToday?"2px solid #00f5a0":"none",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:d.meals>0?"0 4px 12px #00f5a030":"none"}}>
                       {d.meals>0&&<span style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#030912",fontWeight:700}}>{d.meals}</span>}
