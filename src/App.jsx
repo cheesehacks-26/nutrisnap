@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { AuthProvider, AuthGate, useAuth } from "./auth.jsx";
 
 // ═══════════════════════════════════════════════════════════════════
 // SHARED DATA
@@ -201,6 +202,7 @@ function MealCard({meal}) {
 }
 
 function Dashboard({onNav}) {
+  const { logout, user } = useAuth();
   const [nudges,setNudges]=useState([{nudge_id:"n1",type:"low_protein",message:"Low protein 3 days in a row — try adding eggs from Eggcetera tonight",dismissed_at:null}]);
   const [greeting,setGreeting]=useState("");
   useEffect(()=>{const h=new Date().getHours();setGreeting(h<12?"Good morning":h<17?"Good afternoon":"Good evening");},[]);
@@ -215,9 +217,9 @@ function Dashboard({onNav}) {
           <div>
             <div style={{fontFamily:"'Space Mono',monospace",fontSize:11,color:"#334155",letterSpacing:"0.1em",textTransform:"uppercase"}}>{greeting}</div>
             <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,letterSpacing:"-0.02em",marginTop:3}}>{USER.name} <span style={{color:"#00f5a0"}}>👋</span></div>
-            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#475569",marginTop:4}}>Goal: <span style={{color:"#94a3b8",textTransform:"capitalize"}}>{USER.goal.replace("_"," ")}</span></div>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#475569",marginTop:4}}>{user?.email||"Goal: "+USER.goal.replace("_"," ")}</div>
           </div>
-          <div style={{width:46,height:46,borderRadius:16,background:"linear-gradient(135deg,#00f5a020,#00d9f520)",border:"1px solid #00f5a025",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🦡</div>
+          <button onClick={logout} title="Sign out" style={{width:46,height:46,borderRadius:16,background:"linear-gradient(135deg,#00f5a020,#00d9f520)",border:"1px solid #00f5a025",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",flexShrink:0}}>🦡</button>
         </div>
       </div>
 
@@ -967,14 +969,16 @@ export default function App() {
   };
 
   return (
-    <>
+    <AuthProvider>
       <style>{GLOBAL_CSS}</style>
       <div style={{ maxWidth:420, margin:"0 auto", minHeight:"100vh", background:"#06080f", position:"relative" }}>
-        <div key={page} style={{ minHeight:"100vh" }}>
-          {pages[page]}
-        </div>
-        <BottomNav active={page} onNav={setPage} />
+        <AuthGate>
+          <div key={page} style={{ minHeight:"100vh" }}>
+            {pages[page]}
+          </div>
+          <BottomNav active={page} onNav={setPage} />
+        </AuthGate>
       </div>
-    </>
+    </AuthProvider>
   );
 }
