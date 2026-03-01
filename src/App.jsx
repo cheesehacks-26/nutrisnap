@@ -202,8 +202,6 @@ function MealCard({meal}) {
 }
 
 const API_BASE = "https://badgerbite-api.onrender.com";
-
-const API_BASE = "https://badgerbite-api.onrender.com";
 const MEAL_FOR_HOUR = (h) => h < 11 ? "breakfast" : h < 16 ? "lunch" : "dinner";
 const TODAY = new Date().toISOString().slice(0,10);
 
