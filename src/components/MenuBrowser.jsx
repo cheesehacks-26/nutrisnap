@@ -1,7 +1,16 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../auth.jsx";
 import { apiGet, apiPost, apiDelete, API_BASE } from "../utils/api.js";
 import { TAG_STYLE, STATION_ICONS, CAT_COLOR, TODAY, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND } from "../utils/constants.js";
+
+function useDebounce(value, delay) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
 
 const DIET_TAGS    = ["Vegan", "Vegetarian", "Gluten-Free"];
 const SORT_OPTIONS = [
@@ -96,33 +105,59 @@ function BYOCard({ item, onSave, saved, logging }) {
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState({});
   const [logged, setLogged] = useState(false);
+  const [localServings, setLocalServings] = useState(1);
   const { name, station, byo_components } = item;
+
+  const updateServings = (next) => {
+    setLocalServings(Math.max(0.5, Math.min(4, Math.round(next * 2) / 2)));
+    setLogged(false);
+  };
 
   const toggle = (catIdx, itemIdx) => {
     setSelected(prev => {
       const key = `${catIdx}-${itemIdx}`;
       const next = { ...prev };
-      if (next[key]) delete next[key]; else next[key] = byo_components[catIdx].items[itemIdx];
+      if (next[key]) delete next[key]; else next[key] = { item: byo_components[catIdx].items[itemIdx], qty: 1 };
       return next;
     });
     setLogged(false);
   };
 
-  const selArr = Object.values(selected);
-  const totals = selArr.reduce((acc, s) => ({
-    calories: acc.calories + (s.nutrition?.calories || 0),
-    g_protein: acc.g_protein + (s.nutrition?.g_protein || 0),
-    g_carbs: acc.g_carbs + (s.nutrition?.g_carbs || 0),
-    g_fat: acc.g_fat + (s.nutrition?.g_fat || 0),
-    g_sugar: acc.g_sugar + (s.nutrition?.g_sugar || 0),
-    mg_sodium: acc.mg_sodium + (s.nutrition?.mg_sodium || 0),
+  const setQty = (key, delta, e) => {
+    e.stopPropagation();
+    setSelected(prev => {
+      const entry = prev[key];
+      if (!entry) return prev;
+      const next = Math.max(1, Math.min(10, entry.qty + delta));
+      return { ...prev, [key]: { ...entry, qty: next } };
+    });
+    setLogged(false);
+  };
+
+  const entries = Object.entries(selected);
+  const componentTotals = entries.reduce((acc, [, { item: s, qty }]) => ({
+    calories: acc.calories + (s.nutrition?.calories || 0) * qty,
+    g_protein: acc.g_protein + (s.nutrition?.g_protein || 0) * qty,
+    g_carbs: acc.g_carbs + (s.nutrition?.g_carbs || 0) * qty,
+    g_fat: acc.g_fat + (s.nutrition?.g_fat || 0) * qty,
+    g_sugar: acc.g_sugar + (s.nutrition?.g_sugar || 0) * qty,
+    mg_sodium: acc.mg_sodium + (s.nutrition?.mg_sodium || 0) * qty,
   }), { calories: 0, g_protein: 0, g_carbs: 0, g_fat: 0, g_sugar: 0, mg_sodium: 0 });
+  const totals = {
+    calories: componentTotals.calories * localServings,
+    g_protein: componentTotals.g_protein * localServings,
+    g_carbs: componentTotals.g_carbs * localServings,
+    g_fat: componentTotals.g_fat * localServings,
+    g_sugar: componentTotals.g_sugar * localServings,
+    mg_sodium: componentTotals.mg_sodium * localServings,
+  };
 
   const handleLog = (e) => {
     e.stopPropagation();
-    if (selArr.length === 0 || logged) return;
-    const buildName = name + " (" + selArr.map(s => s.name).join(", ") + ")";
-    onSave?.(item.food_id, 1, { food_name: buildName, ...totals });
+    if (entries.length === 0 || logged) return;
+    const parts = entries.map(([, { item: s, qty }]) => qty > 1 ? `${qty}x ${s.name}` : s.name);
+    const buildName = name + " (" + parts.join(", ") + ")";
+    onSave?.(item.food_id, localServings, { food_name: buildName, ...totals });
     setLogged(true);
   };
 
@@ -136,10 +171,10 @@ function BYOCard({ item, onSave, saved, logging }) {
           <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
           <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "#a78bfa", marginTop: 2 }}>{STATION_ICONS[station]} {station} · {byo_components.reduce((n, c) => n + c.items.length, 0)} options</div>
         </div>
-        {selArr.length > 0 ? (
+        {entries.length > 0 ? (
           <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 15, fontWeight: 700, color: "var(--cal-color)" }}>{totals.calories}</div>
-            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "#a78bfa" }}>{selArr.length} picked</div>
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 15, fontWeight: 700, color: "var(--cal-color)" }}>{Math.round(totals.calories)}</div>
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "#a78bfa" }}>{entries.length} picked{localServings !== 1 ? ` \u00B7 ${localServings}\u00D7` : ""}</div>
           </div>
         ) : (
           <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "#a78bfa", background: "rgba(168,85,247,0.12)", padding: "3px 10px", borderRadius: 99, flexShrink: 0 }}>BUILD</span>
@@ -158,32 +193,47 @@ function BYOCard({ item, onSave, saved, logging }) {
               </div>
               {cat.items.map((sub, si) => {
                 const key = `${ci}-${si}`;
-                const active = !!selected[key];
+                const entry = selected[key];
+                const active = !!entry;
+                const qty = entry?.qty || 1;
                 const n = sub.nutrition || {};
                 return (
-                  <button key={si} onClick={() => toggle(ci, si)}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 4, borderRadius: 12, cursor: "pointer", width: "100%", textAlign: "left",
-                      background: active ? "rgba(0,245,160,0.08)" : "var(--bg-card)",
-                      border: `1px solid ${active ? "rgba(0,245,160,0.25)" : "var(--border-faint)"}`,
-                      transition: "all 0.2s" }}>
-                    <div style={{ width: 18, height: 18, borderRadius: 6, border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: active ? "rgba(0,245,160,0.15)" : "transparent", transition: "all 0.2s" }}>
-                      {active && <span style={{ color: "var(--accent)", fontSize: 11, fontWeight: 700 }}>{"\u2713"}</span>}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: active ? "var(--text-primary)" : "var(--text-muted)" }}>{sub.name}</div>
-                      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", marginTop: 1 }}>{sub.serving_size}</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "baseline", flexShrink: 0 }}>
-                      <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, color: active ? "var(--cal-color)" : "var(--text-muted)" }}>{n.calories}</span>
-                      <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}>kcal</span>
-                    </div>
-                  </button>
+                  <div key={si} style={{ marginBottom: 4 }}>
+                    <button onClick={() => toggle(ci, si)}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: active ? "12px 12px 0 0" : 12, cursor: "pointer", width: "100%", textAlign: "left",
+                        background: active ? "rgba(0,245,160,0.08)" : "var(--bg-card)",
+                        border: `1px solid ${active ? "rgba(0,245,160,0.25)" : "var(--border-faint)"}`,
+                        borderBottom: active ? "none" : undefined,
+                        transition: "all 0.2s" }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 6, border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: active ? "rgba(0,245,160,0.15)" : "transparent", transition: "all 0.2s" }}>
+                        {active && <span style={{ color: "var(--accent)", fontSize: 11, fontWeight: 700 }}>{"\u2713"}</span>}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: active ? "var(--text-primary)" : "var(--text-muted)" }}>{sub.name}</div>
+                        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", marginTop: 1 }}>{sub.serving_size}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "baseline", flexShrink: 0 }}>
+                        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, color: active ? "var(--cal-color)" : "var(--text-muted)" }}>{Math.round((n.calories || 0) * qty)}</span>
+                        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}>kcal</span>
+                      </div>
+                    </button>
+                    {active && (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px", background: "rgba(0,245,160,0.05)", border: "1px solid rgba(0,245,160,0.25)", borderTop: "none", borderRadius: "0 0 12px 12px" }}>
+                        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)" }}>Qty</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <button onClick={(e) => setQty(key, -1, e)} disabled={qty <= 1} aria-label={`Decrease ${sub.name}`} style={{ background: "none", border: "none", color: qty <= 1 ? "var(--border-faint)" : "var(--text-muted)", cursor: qty <= 1 ? "default" : "pointer", fontSize: 14, lineHeight: 1, padding: "0 4px" }}>{"\u2212"}</button>
+                          <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, color: "var(--accent)", minWidth: 18, textAlign: "center" }}>{qty}</span>
+                          <button onClick={(e) => setQty(key, 1, e)} disabled={qty >= 10} aria-label={`Increase ${sub.name}`} style={{ background: "none", border: "none", color: qty >= 10 ? "var(--border-faint)" : "var(--text-muted)", cursor: qty >= 10 ? "default" : "pointer", fontSize: 14, lineHeight: 1, padding: "0 4px" }}>+</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
           ))}
 
-          {selArr.length > 0 && (
+          {entries.length > 0 && (
             <div style={{ marginTop: 16, background: "rgba(0,245,160,0.04)", border: "1px solid rgba(0,245,160,0.15)", borderRadius: 14, padding: 12 }}>
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>YOUR BUILD TOTAL</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -199,6 +249,14 @@ function BYOCard({ item, onSave, saved, logging }) {
                   </div>
                 ))}
               </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Whole-build servings</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-input)", borderRadius: 12, padding: "4px 10px", border: "1px solid var(--border-faint)" }}>
+                  <button onClick={(e) => { e.stopPropagation(); updateServings(localServings - 0.5); }} aria-label="Decrease servings" style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 2px" }}>{"\u2212"}</button>
+                  <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, color: "var(--text-secondary)", minWidth: 30, textAlign: "center" }} aria-live="polite">{localServings}{"\u00D7"}</span>
+                  <button onClick={(e) => { e.stopPropagation(); updateServings(localServings + 0.5); }} aria-label="Increase servings" style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 2px" }}>+</button>
+                </div>
+              </div>
               {logged ? (
                 <div style={{ width: "100%", padding: 12, borderRadius: 14, border: "1.75px solid var(--accent)", background: "var(--accent)10", fontWeight: 700, fontSize: 13, color: "var(--accent)", textAlign: "center" }}>
                   {"\u2713"} Added to log
@@ -206,7 +264,7 @@ function BYOCard({ item, onSave, saved, logging }) {
               ) : (
                 <button onClick={handleLog} disabled={logging}
                   style={{ width: "100%", padding: 12, borderRadius: 14, border: "1.75px solid var(--border)", cursor: logging ? "not-allowed" : "pointer", background: "var(--bg-input)", fontWeight: 700, fontSize: 13, color: "var(--text-secondary)", transition: "all 0.25s ease", opacity: logging ? 0.6 : 1 }}>
-                  {logging ? "Logging..." : "+ Add build to log"}
+                  {logging ? "Logging..." : `+ Log ${localServings > 1 ? localServings + "\u00D7 " : ""}build`}
                 </button>
               )}
             </div>
@@ -240,8 +298,8 @@ export default function MenuBrowser() {
   const [savedServings, setSavedServings]     = useState({});
   const [loggingIds, setLoggingIds]           = useState(new Set());
   const [removingIds, setRemovingIds]         = useState(new Set());
-
-  const stations = useMemo(() => ["All", ...Array.from(new Set(menuItems.map(i => i.station).filter(Boolean)))], [menuItems]);
+  const [stations, setStations]              = useState(["All"]);
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/dining-halls`)
@@ -266,37 +324,46 @@ export default function MenuBrowser() {
       .finally(() => setRecsLoading(false));
   }, [effectiveMealForRecs, selectedHall, token]);
 
+  const buildMenuUrl = useCallback(() => {
+    const params = new URLSearchParams({ hall: selectedHall, meal: mealType });
+    if (sortKey !== "default") params.set("sort", sortKey);
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+    if (selectedStation !== "All") params.set("station", selectedStation);
+    if (activeTags.length) params.set("tags", activeTags.join(","));
+    return `${API_BASE}/api/menu?${params}`;
+  }, [selectedHall, mealType, sortKey, debouncedSearch, selectedStation, activeTags]);
+
+  const parseMenuResponse = useCallback((d) => {
+    const raw = (d && Array.isArray(d.items)) ? d.items : [];
+    if (d.stations) setStations(["All", ...d.stations]);
+    if (raw.length > 0) {
+      setMenuItems(raw.filter(i => i?.name?.trim()).map(i => {
+        const nut = i.nutrition || {};
+        return {
+          ...i,
+          nutrition: {
+            calories: nut.calories ?? 0, g_protein: nut.g_protein ?? 0,
+            g_carbs: nut.g_carbs ?? 0, g_fat: nut.g_fat ?? 0,
+            g_sugar: nut.g_sugar ?? 0, mg_sodium: nut.mg_sodium ?? 0,
+            g_fiber: nut.g_fiber ?? 0,
+          },
+          food_tags: i.food_tags || [],
+        };
+      }));
+    } else {
+      setMenuItems([]);
+    }
+  }, []);
+
   useEffect(() => {
     setMenuLoading(true);
     setMenuError(false);
-    fetch(`${API_BASE}/api/menu?hall=${selectedHall}&meal=${mealType}`)
+    fetch(buildMenuUrl())
       .then(r => r.json())
-      .then(d => {
-        const raw = (d && Array.isArray(d.items)) ? d.items : [];
-        if (raw.length > 0) {
-          setMenuItems(raw.filter(i => i?.name?.trim()).map(i => {
-            const nut = i.nutrition || {};
-            return {
-              ...i,
-              nutrition: {
-                calories: nut.calories ?? 0,
-                g_protein: nut.g_protein ?? 0,
-                g_carbs: nut.g_carbs ?? 0,
-                g_fat: nut.g_fat ?? 0,
-                g_sugar: nut.g_sugar ?? 0,
-                mg_sodium: nut.mg_sodium ?? 0,
-                g_fiber: nut.g_fiber ?? 0,
-              },
-              food_tags: i.food_tags || [],
-            };
-          }));
-        } else {
-          setMenuItems([]);
-        }
-      })
+      .then(parseMenuResponse)
       .catch(e => { console.error("Menu load error:", e); setMenuError(true); })
       .finally(() => setMenuLoading(false));
-  }, [mealType, selectedHall]);
+  }, [buildMenuUrl, parseMenuResponse]);
 
   useEffect(() => {
     apiGet("/api/saved-foods", token)
@@ -380,27 +447,9 @@ export default function MenuBrowser() {
     }
   };
 
-  const filtered = useMemo(() => {
-    let list = menuItems;
-    if (showSaved)           list = list.filter(i => savedFoodIds.has(String(i.food_id)));
-    if (selectedStation !== "All") list = list.filter(i => i.station === selectedStation);
-    if (activeTags.length)   list = list.filter(i => i.is_build_your_own || activeTags.every(t => i.food_tags.includes(t)));
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(i => {
-        if ((i.name || "").toLowerCase().includes(q) || (i.station || "").toLowerCase().includes(q)) return true;
-        if (i.byo_components) return i.byo_components.some(cat => cat.items.some(sub => sub.name.toLowerCase().includes(q)));
-        return false;
-      });
-    }
-    switch (sortKey) {
-      case "station":  return [...list].sort((a, b) => (a.station || "").localeCompare(b.station || ""));
-      case "cal_asc":  return [...list].sort((a, b) => (a.nutrition?.calories ?? 0) - (b.nutrition?.calories ?? 0));
-      case "cal_desc": return [...list].sort((a, b) => (b.nutrition?.calories ?? 0) - (a.nutrition?.calories ?? 0));
-      case "protein":  return [...list].sort((a, b) => (b.nutrition?.g_protein ?? 0) - (a.nutrition?.g_protein ?? 0));
-      default: return list;
-    }
-  }, [selectedStation, activeTags, sortKey, searchQuery, showSaved, menuItems, savedFoodIds]);
+  const displayItems = showSaved
+    ? menuItems.filter(i => savedFoodIds.has(String(i.food_id)))
+    : menuItems;
 
   const savedCount = savedFoodIds.size;
   const totalCal = menuItems
@@ -478,7 +527,7 @@ export default function MenuBrowser() {
 
       {/* Count + saved toggle */}
       <div style={{ padding: "8px 20px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>{filtered.length} ITEM{filtered.length !== 1 ? "S" : ""}</span>
+        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>{displayItems.length} ITEM{displayItems.length !== 1 ? "S" : ""}</span>
         <button onClick={() => setShowSaved(s => !s)} aria-pressed={showSaved} style={{ background: showSaved ? "var(--accent)10" : "var(--bg-input)", border: `1px solid ${showSaved ? "var(--accent)30" : "var(--border-faint)"}`, borderRadius: 99, padding: "4px 12px", cursor: "pointer", fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.06em", color: showSaved ? "var(--accent)" : "var(--text-muted)", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6 }}>
           {savedCount > 0 && <span style={{ background: "var(--accent)", color: "var(--accent-contrast)", borderRadius: "50%", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 8 }}>{savedCount}</span>}
           MY LOG
@@ -526,33 +575,21 @@ export default function MenuBrowser() {
             <button onClick={() => {
             setMenuError(false);
             setMenuLoading(true);
-            fetch(`${API_BASE}/api/menu?hall=${selectedHall}&meal=${mealType}`)
+            fetch(buildMenuUrl())
               .then(r => r.json())
-              .then(d => {
-                const raw = (d && Array.isArray(d.items)) ? d.items : [];
-                if (raw.length > 0) {
-                  setMenuItems(raw.filter(i => i?.name?.trim()).map(i => {
-                    const nut = i.nutrition || {};
-                    return {
-                      ...i,
-                      nutrition: { calories: nut.calories ?? 0, g_protein: nut.g_protein ?? 0, g_carbs: nut.g_carbs ?? 0, g_fat: nut.g_fat ?? 0, g_sugar: nut.g_sugar ?? 0, mg_sodium: nut.mg_sodium ?? 0, g_fiber: nut.g_fiber ?? 0 },
-                      food_tags: i.food_tags || [],
-                    };
-                  }));
-                } else setMenuItems([]);
-              })
+              .then(parseMenuResponse)
               .catch(() => setMenuError(true))
               .finally(() => setMenuLoading(false));
           }} style={{ marginTop: 16, padding: "10px 24px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-input)", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)" }}>Retry</button>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : displayItems.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0", animation: "fadeSlideUp 0.4s ease" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }} aria-hidden="true">{"\uD83C\uDF5D"}</div>
             <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, color: "var(--text-dim)" }}>Nothing found</div>
           </div>
         ) : (() => {
           let lastStation = null;
-          return filtered.map((item, i) => {
+          return displayItems.map((item, i) => {
             const showHeader = sortKey === "station" && item.station !== lastStation;
             lastStation = item.station;
             return (
