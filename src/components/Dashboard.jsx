@@ -306,7 +306,8 @@ export default function Dashboard({ onNav }) {
                 <div key={item.food_id} role="listitem" style={{ flexShrink: 0, width: 160, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, padding: 14, cursor: "pointer", position: "relative" }}>
                   {item.is_saved && <div style={{ position: "absolute", top: 10, right: 10, fontSize: 12 }} aria-label="Saved">🔖</div>}
                   <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 4, lineHeight: 1.3, paddingRight: item.is_saved ? 16 : 0 }}>{item.name}</div>
-                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 8 }}>{item.station}</div>
+                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 2 }}>{item.station}</div>
+                  {item.hall_name && <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", marginBottom: 6 }}>@ {item.hall_name}</div>}
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
                     {(item.food_tags || []).map(t => <span key={t} style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: TAG_COLOR[t] || "var(--text-secondary)", background: `${TAG_COLOR[t] || "#94a3b8"}15`, padding: "2px 7px", borderRadius: 99 }}>{t}</span>)}
                   </div>
