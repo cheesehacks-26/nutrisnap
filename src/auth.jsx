@@ -83,11 +83,16 @@ export function AuthProvider({ children }) {
 // API HELPER
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 async function authRequest(path, body) {
-  const res = await fetch(`${API}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch(`${API}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error("Cannot reach server -- it may be waking up. Please try again in a few seconds.");
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || data?.message || "Something went wrong");
   return data;
@@ -271,12 +276,12 @@ export function LoginPage({ onSwitch }) {
       <div style={s.card}>
         <div style={s.topLine} />
         <div style={s.logo}>Nutri<span style={{ color: "var(--accent)" }}>Snap</span></div>
-        <div style={s.subtitle}>Sign in to track your dining hall meals \uD83C\uDF74</div>
+        <div style={s.subtitle}>Sign in to track your dining hall meals</div>
         {error && <div style={s.error} role="alert">{error}</div>}
         <Field label="Email" type="email" value={email} onChange={setEmail}
           placeholder="you@wisc.edu" autoComplete="email" />
         <Field label="Password" type="password" value={password} onChange={setPassword}
-          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" autoComplete="current-password" />
+          placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" autoComplete="current-password" />
         <button
           onClick={handleSubmit}
           disabled={loading}
@@ -284,7 +289,7 @@ export function LoginPage({ onSwitch }) {
           style={{ ...s.btn, ...(loading ? s.btnDisabled : {}) }}
           aria-label="Sign in"
         >
-          {loading ? "Signing in..." : "Sign in â†’"}
+          {loading ? "Signing in..." : "Sign in \u2192"}
         </button>
         <div style={s.switchText}>
           No account?{" "}
@@ -330,21 +335,21 @@ export function RegisterPage({ onSwitch }) {
       <div style={s.card}>
         <div style={s.topLine} />
         <div style={s.logo}>Nutri<span style={{ color: "var(--accent)" }}>Snap</span></div>
-        <div style={s.subtitle}>Create your account to get started \uD83C\uDF31</div>
+        <div style={s.subtitle}>Create your account to get started</div>
         {error && <div style={s.error} role="alert">{error}</div>}
         <Field label="Email" type="email" value={email} onChange={setEmail}
           placeholder="you@wisc.edu" autoComplete="email" />
         <Field label="Password" type="password" value={password} onChange={setPassword}
           placeholder="Min 8 chars, 1 uppercase, 1 number" autoComplete="new-password" />
         <Field label="Confirm password" type="password" value={confirm} onChange={setConfirm}
-          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" autoComplete="new-password" />
+          placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" autoComplete="new-password" />
         <button
           onClick={handleSubmit}
           disabled={loading}
           style={{ ...s.btn, ...(loading ? s.btnDisabled : {}) }}
           aria-label="Create account"
         >
-          {loading ? "Creating account..." : "Create account â†’"}
+          {loading ? "Creating account..." : "Create account \u2192"}
         </button>
         <div style={s.switchText}>
           Already have an account?{" "}
