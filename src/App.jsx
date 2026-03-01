@@ -239,11 +239,13 @@ function Dashboard({onNav}) {
   useEffect(()=>{const h=new Date().getHours();setGreeting(h<12?"Good morning":h<17?"Good afternoon":"Good evening");},[]);
 
   useEffect(()=>{
+    const timer=setTimeout(()=>setLoading(false),8000); // safety timeout
     Promise.all([
-      apiGet("/api/profile", token),
-      apiGet(`/api/log?date=${TODAY}`, token),
-    ]).then(([pData, lData])=>{
-      setProfile(pData.profile);
+      apiGet("/api/profile", token).catch(()=>({profile:null})),
+      apiGet(`/api/log?date=${TODAY}`, token).catch(()=>({logs:[],totals:{}})),
+      apiGet("/api/targets", token).catch(()=>({targets:null})),
+    ]).then(([pData, lData, tData])=>{
+      setProfile({...(pData.profile||{}), ...(tData.targets||{})});
       const groups={};
       (lData.logs||[]).forEach(log=>{
         const mt=log.meal_type||"snack";
@@ -256,7 +258,7 @@ function Dashboard({onNav}) {
       });
       setTodayLogs(Object.values(groups));
       setTodayTotals(lData.totals||{calories:0,protein_g:0,carbs_g:0,fat_g:0});
-    }).catch(()=>{}).finally(()=>setLoading(false));
+    }).catch(()=>{}).finally(()=>{clearTimeout(timer);setLoading(false);});
   },[token]);
 
   useEffect(()=>{
@@ -274,9 +276,9 @@ function Dashboard({onNav}) {
   },[token]);
 
   const calGoal  = profile?.calorie_target || 2000;
-  const protGoal = profile?.protein_target  || 150;
-  const carbGoal = profile?.carbs_target    || 250;
-  const fatGoal  = profile?.fat_target      || 65;
+  const protGoal = profile?.protein_g       || 150;
+  const carbGoal = profile?.carbs_g         || 250;
+  const fatGoal  = profile?.fat_g           || 65;
   const totals = { calories:todayTotals.calories||0, g_protein:todayTotals.protein_g||0, g_carbs:todayTotals.carbs_g||0, g_fat:todayTotals.fat_g||0 };
   const displayName = profile?.display_name || user?.email?.split("@")[0] || "there";
   const goalLabel = profile?.goal ? profile.goal.replace("_"," ") : "maintain";
@@ -491,20 +493,46 @@ function SnapPage({onNav}) {
     setPhase("scanning");
   },[]);
 
-  const runAnalysis=useCallback(()=>{
+  const runAnalysis=useCallback(async(fileOrEvent)=>{
     setPhase("analyzing");stopCamera();
-    setTimeout(()=>{
-      const results=MOCK_DETECTIONS.filter(d=>d.confidence>=0.25).map(det=>{
-        const candidates=MENU.map(item=>({food_item:item,match_score:
-          det.label==="pizza"&&item.name.toLowerCase().includes("pizza")?0.92:
-          det.label==="salad"&&item.name.toLowerCase().includes("salad")?0.85:
-          det.label==="bread"&&item.name.toLowerCase().includes("toast")?0.78:
-          Math.random()*0.35})).sort((a,b)=>b.match_score-a.match_score).slice(0,3);
-        return{detection_label:det.label,confidence:det.confidence,candidates};
+    try{
+      // Get image from file input or video frame
+      let base64Image="";
+      const file=fileOrEvent?.target?.files?.[0];
+      if(file){
+        base64Image=await new Promise((res,rej)=>{
+          const r=new FileReader();
+          r.onload=e=>res(e.target.result.split(",")[1]);
+          r.onerror=rej;
+          r.readAsDataURL(file);
+        });
+      } else if(videoRef.current){
+        const canvas=document.createElement("canvas");
+        canvas.width=videoRef.current.videoWidth||640;
+        canvas.height=videoRef.current.videoHeight||480;
+        canvas.getContext("2d").drawImage(videoRef.current,0,0);
+        base64Image=canvas.toDataURL("image/jpeg",0.8).split(",")[1];
+      }
+      const meal=MEAL_FOR_HOUR(new Date().getHours());
+      const data=await apiPost("/api/snap",token,{
+        image:base64Image,
+        hall:"gordon-avenue-market",
+        meal,
       });
-      setDetections(MOCK_DETECTIONS);setMatches(results);setPhase("results");
-    },2800);
-  },[stopCamera]);
+      // Map matched items into our match format
+      const results=(data.matched||[]).map(item=>({
+        detection_label:item.name,
+        confidence:0.9,
+        candidates:[{food_item:{...item,food_category:"entree"},match_score:0.95}],
+      }));
+      setDetections((data.matched||[]).map(i=>({label:i.name,confidence:0.9})));
+      setMatches(results);
+      setPhase(results.length>0?"results":"manual");
+    }catch(e){
+      // fallback to manual
+      setPhase("manual");
+    }
+  },[stopCamera,token]);
 
   const handleLog=useCallback(async()=>{
     setLogError("");
@@ -793,12 +821,34 @@ function MenuBrowser() {
   },[mealType]);
 
   const toggleTag=tag=>setActiveTags(p=>p.includes(tag)?p.filter(t=>t!==tag):[...p,tag]);
-  const toggleSave=id=>setSaved(p=>({...p,[id]:!p[id]}));
+  const [savedFoodIds,setSavedFoodIds]=useState(new Set());
+  // Load saved foods on mount
+  useEffect(()=>{
+    apiGet("/api/saved-foods",token)
+      .then(d=>{setSavedFoodIds(new Set((d.saved_foods||[]).map(f=>String(f.food_id))));})
+      .catch(()=>{});
+  },[token]);
+
+  const toggleSave=async(id)=>{
+    const strId=String(id);
+    const item=menuItems.find(i=>String(i.food_id)===strId);
+    if(savedFoodIds.has(strId)){
+      setSavedFoodIds(p=>{const n=new Set(p);n.delete(strId);return n;});
+      apiDelete(`/api/saved-foods/${strId}`,token).catch(()=>{});
+    } else {
+      setSavedFoodIds(p=>new Set([...p,strId]));
+      if(item) apiPost("/api/saved-foods",token,{
+        food_id:strId,food_name:item.name,hall:"gordon-avenue-market",
+        calories:item.nutrition.calories||0,protein_g:item.nutrition.g_protein||0,
+        carbs_g:item.nutrition.g_carbs||0,fat_g:item.nutrition.g_fat||0,
+      }).catch(()=>{});
+    }
+  };
 
   const handleLogSaved=async()=>{
     if(logLoading)return;
     setLogLoading(true);
-    const items=menuItems.filter(i=>saved[i.food_id]);
+    const items=menuItems.filter(i=>savedFoodIds.has(String(i.food_id)));
     try{
       await Promise.all(items.map(item=>apiPost("/api/log",token,{
         food_id:String(item.food_id),food_name:item.name,quantity:1,
@@ -816,7 +866,7 @@ function MenuBrowser() {
 
   const filtered=useMemo(()=>{
     let list=menuItems;
-    if(showSaved)list=list.filter(i=>saved[i.food_id]);
+    if(showSaved)list=list.filter(i=>savedFoodIds.has(String(i.food_id)));
     if(selectedStation!=="All")list=list.filter(i=>i.station===selectedStation);
     if(activeTags.length)list=list.filter(i=>activeTags.every(t=>i.food_tags.includes(t)));
     if(searchQuery.trim()){const q=searchQuery.toLowerCase();list=list.filter(i=>i.name.toLowerCase().includes(q)||i.station.toLowerCase().includes(q));}
@@ -828,8 +878,8 @@ function MenuBrowser() {
     }
   },[selectedStation,activeTags,sortKey,searchQuery,showSaved,saved]);
 
-  const savedCount=Object.values(saved).filter(Boolean).length;
-  const totalCal=menuItems.filter(i=>saved[i.food_id]).reduce((s,i)=>s+i.nutrition.calories,0);
+  const savedCount=savedFoodIds.size;
+  const totalCal=menuItems.filter(i=>savedFoodIds.has(String(i.food_id))).reduce((s,i)=>s+i.nutrition.calories,0);
 
   return (
     <div style={{paddingBottom:120,animation:"pageIn 0.35s ease"}}>
@@ -911,7 +961,7 @@ function MenuBrowser() {
           </div>
         ):filtered.map((item,i)=>(
           <div key={item.food_id} style={{animation:`fadeSlideUp 0.35s ease ${i*0.04}s both`}}>
-            <FoodCard item={item} saved={!!saved[item.food_id]} onSave={toggleSave}/>
+            <FoodCard item={item} saved={savedFoodIds.has(String(item.food_id))} onSave={toggleSave}/>
           </div>
         ))}
       </div>
@@ -932,37 +982,19 @@ function MenuBrowser() {
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: TRENDS
 // ═══════════════════════════════════════════════════════════════════
-const WEEK_DATA=[
-  {date:"Feb 22",day:"Sat",  calories:1420,g_protein:68, g_carbs:180,g_fat:44,meals:2},
-  {date:"Feb 23",day:"Sun",  calories:1980,g_protein:95, g_carbs:240,g_fat:61,meals:3},
-  {date:"Feb 24",day:"Mon",  calories:2210,g_protein:112,g_carbs:270,g_fat:72,meals:3},
-  {date:"Feb 25",day:"Tue",  calories:1760,g_protein:78, g_carbs:220,g_fat:55,meals:2},
-  {date:"Feb 26",day:"Wed",  calories:2100,g_protein:103,g_carbs:255,g_fat:68,meals:3},
-  {date:"Feb 27",day:"Thu",  calories:2300,g_protein:118,g_carbs:280,g_fat:74,meals:3},
-  {date:"Feb 28",day:"Today",calories:960, g_protein:72, g_carbs:101,g_fat:30,meals:2},
-];
-const GOALS_T={calories:2400,g_protein:160,g_carbs:260,g_fat:80};
-const CAL_MAX=2800,CH=160,CW=340,PL=36,PB=28,PR=12,PT=16,IW=CW-PL-PR,IH=CH-PT-PB;
-const MACRO_META=[
-  {key:"g_protein",label:"Protein",color:"#60a5fa",goal:160,max:180},
-  {key:"g_carbs",  label:"Carbs",  color:"#fbbf24",goal:260,max:320},
-  {key:"g_fat",    label:"Fat",    color:"#f97316",goal:80, max:100},
-];
-const INSIGHTS=[
-  {icon:"💪",title:"Protein low 3 days",body:"You hit your protein goal only once this week. Try Fired Up's Grilled Chicken tonight.",color:"#60a5fa"},
-  {icon:"🔥",title:"Calorie streak",body:"4 out of 7 days within 10% of your goal. Keep it up!",color:"#00f5a0"},
-  {icon:"🍞",title:"Carb-heavy Thursdays",body:"You consistently go over carbs mid-week. Try swapping bread for brown rice.",color:"#fbbf24"},
-];
-const xp=i=>PL+(i/(WEEK_DATA.length-1))*IW;
+const CH=160,CW=340,PL=36,PB=28,PR=12,PT=16,IW=CW-PL-PR,IH=CH-PT-PB;
+const CAL_MAX=2800;
+const xp=(i,len)=>PL+(i/Math.max(len-1,1))*IW;
 const yp=(v,m)=>PT+IH-(v/m)*IH;
 
-function LineChart({activeDay,onDayClick}) {
+function LineChart({activeDay,onDayClick,weekData,goalsT}) {
   const pathRef=useRef(null);
   const [drawn,setDrawn]=useState(0);
   const [len,setLen]=useState(1000);
-  const linePath=WEEK_DATA.map((d,i)=>`${i===0?"M":"L"} ${xp(i).toFixed(1)} ${yp(d.calories,CAL_MAX).toFixed(1)}`).join(" ");
-  const areaPath=linePath+` L ${xp(6).toFixed(1)} ${(PT+IH).toFixed(1)} L ${xp(0).toFixed(1)} ${(PT+IH).toFixed(1)} Z`;
-  const goalY=yp(GOALS_T.calories,CAL_MAX);
+  const n=weekData.length;
+  const linePath=weekData.map((d,i)=>`${i===0?"M":"L"} ${xp(i,n).toFixed(1)} ${yp(d.calories,CAL_MAX).toFixed(1)}`).join(" ");
+  const areaPath=linePath+` L ${xp(n-1,n).toFixed(1)} ${(PT+IH).toFixed(1)} L ${xp(0,n).toFixed(1)} ${(PT+IH).toFixed(1)} Z`;
+  const goalY=yp(goalsT.calories,CAL_MAX);
   useEffect(()=>{
     if(!pathRef.current)return;
     const l=pathRef.current.getTotalLength();
@@ -970,7 +1002,7 @@ function LineChart({activeDay,onDayClick}) {
     const start=performance.now();
     const tick=now=>{const t=Math.min(1,(now-start)/900);setDrawn(l*(1-Math.pow(1-t,3)));if(t<1)requestAnimationFrame(tick);};
     requestAnimationFrame(tick);
-  },[]);
+  },[weekData]);
   return (
     <svg width="100%" viewBox={`0 0 ${CW} ${CH}`} style={{overflow:"visible"}}>
       <defs>
@@ -981,41 +1013,101 @@ function LineChart({activeDay,onDayClick}) {
       <line x1={PL} y1={goalY} x2={CW-PR} y2={goalY} stroke="#00f5a0" strokeWidth="1" strokeDasharray="4 4" opacity="0.35"/>
       <path d={areaPath} fill="url(#ag)"/>
       <path ref={pathRef} d={linePath} fill="none" stroke="url(#lg)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={len} strokeDashoffset={len-drawn}/>
-      {WEEK_DATA.map((d,i)=>{
-        const cx=xp(i),cy=yp(d.calories,CAL_MAX),isActive=activeDay===i,isToday=d.day==="Today",over=d.calories>GOALS_T.calories;
+      {weekData.map((d,i)=>{
+        const cx=xp(i,n),cy=yp(d.calories,CAL_MAX),isActive=activeDay===i,isToday=d.isToday,over=d.calories>goalsT.calories;
         return(<g key={i} onClick={()=>onDayClick(i)} style={{cursor:"pointer"}}>
           <circle cx={cx} cy={cy} r={isActive?7:4.5} fill={over?"#f87171":"#00f5a0"} stroke="#06080f" strokeWidth="2" style={{transition:"r 0.2s",filter:isActive?`drop-shadow(0 0 6px ${over?"#f87171":"#00f5a0"})`:"none"}}/>
           {isToday&&<circle cx={cx} cy={cy} r={11} fill="none" stroke="#00f5a0" strokeWidth="1" opacity="0.4"/>}
-          <text x={cx} y={PT+IH+16} textAnchor="middle" fill={isActive?"#f1f5f9":"#334155"} fontSize="9" fontFamily="Space Mono,monospace">{d.day==="Today"?"NOW":d.day}</text>
+          <text x={cx} y={PT+IH+16} textAnchor="middle" fill={isActive?"#f1f5f9":"#334155"} fontSize="9" fontFamily="Space Mono,monospace">{isToday?"NOW":d.day}</text>
         </g>);
       })}
     </svg>
   );
 }
 
-function MacroBarChart({metric}) {
-  const meta=MACRO_META.find(m=>m.key===metric),goalY=yp(meta.goal,meta.max);
+function MacroBarChart({metric,weekData,macroMeta}) {
+  const meta=macroMeta.find(m=>m.key===metric),goalY=yp(meta.goal,meta.max);
+  const n=weekData.length;
   return (
     <svg width="100%" viewBox={`0 0 ${CW} ${CH}`} style={{overflow:"visible"}}>
       <line x1={PL} y1={goalY} x2={CW-PR} y2={goalY} stroke={meta.color} strokeWidth="1" strokeDasharray="4 4" opacity="0.4"/>
       {[0,0.5,1].map(f=>{const y=PT+IH*(1-f);return(<g key={f}><line x1={PL} y1={y} x2={CW-PR} y2={y} stroke="rgba(255,255,255,0.04)" strokeWidth="1"/><text x={PL-4} y={y+4} textAnchor="end" fill="#334155" fontSize="8" fontFamily="Space Mono,monospace">{Math.round(meta.max*f)}g</text></g>);})}
-      {WEEK_DATA.map((d,i)=>{
-        const bw=(IW/WEEK_DATA.length)*0.55,cx=xp(i),val=d[metric],bh=(val/meta.max)*IH,x=cx-bw/2,y=PT+IH-bh,isToday=d.day==="Today",over=val>meta.goal,color=over?"#f87171":isToday?meta.color:`${meta.color}55`;
-        return(<g key={i}><rect x={x} y={y} width={bw} height={bh} rx="3" fill={color} style={{animation:`fadeIn 0.4s ${i*0.07}s ease both`}}/><text x={cx} y={PT+IH+16} textAnchor="middle" fill={isToday?"#f1f5f9":"#334155"} fontSize="9" fontFamily="Space Mono,monospace">{d.day==="Today"?"NOW":d.day}</text></g>);
+      {weekData.map((d,i)=>{
+        const bw=(IW/n)*0.55,cx=xp(i,n),val=d[metric],bh=Math.max(0,(val/meta.max)*IH),x=cx-bw/2,y=PT+IH-bh,isToday=d.isToday,over=val>meta.goal,color=over?"#f87171":isToday?meta.color:`${meta.color}55`;
+        return(<g key={i}><rect x={x} y={y} width={bw} height={bh} rx="3" fill={color} style={{animation:`fadeIn 0.4s ${i*0.07}s ease both`}}/><text x={cx} y={PT+IH+16} textAnchor="middle" fill={isToday?"#f1f5f9":"#334155"} fontSize="9" fontFamily="Space Mono,monospace">{isToday?"NOW":d.day}</text></g>);
       })}
     </svg>
   );
 }
 
 function Trends() {
+  const { token } = useAuth();
   const [activeDay,setActiveDay]=useState(6);
   const [activeMetric,setActiveMetric]=useState("g_protein");
   const [tab,setTab]=useState("calories");
-  const sel=WEEK_DATA[activeDay];
-  const avgCal=Math.round(WEEK_DATA.reduce((s,d)=>s+d.calories,0)/WEEK_DATA.length);
-  const avgProt=Math.round(WEEK_DATA.reduce((s,d)=>s+d.g_protein,0)/WEEK_DATA.length);
-  const daysLogged=WEEK_DATA.filter(d=>d.meals>0).length;
-  const daysOnGoal=WEEK_DATA.filter(d=>Math.abs(d.calories-GOALS_T.calories)/GOALS_T.calories<0.1).length;
+  const [weekData,setWeekData]=useState([]);
+  const [goalsT,setGoalsT]=useState({calories:2000,g_protein:150,g_carbs:250,g_fat:65});
+  const [loading,setLoading]=useState(true);
+
+  const DAY_LABELS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const todayStr=new Date().toISOString().slice(0,10);
+
+  useEffect(()=>{
+    apiGet("/api/history?days=7",token)
+      .then(data=>{
+        const targets=data.targets||{};
+        setGoalsT({
+          calories:targets.calorie_target||2000,
+          g_protein:targets.protein_g||150,
+          g_carbs:targets.carbs_g||250,
+          g_fat:targets.fat_g||65,
+        });
+        const rows=(data.history||[]).map(d=>({
+          date:new Date(d.date+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}),
+          day:DAY_LABELS[new Date(d.date+"T12:00:00").getDay()],
+          isToday:d.date===todayStr,
+          calories:Math.round(d.calories||0),
+          g_protein:Math.round(d.protein_g||0),
+          g_carbs:Math.round(d.carbs_g||0),
+          g_fat:Math.round(d.fat_g||0),
+          meals:d.calories>0?1:0,
+        }));
+        setWeekData(rows);
+        setActiveDay(rows.length-1);
+      })
+      .catch(()=>{})
+      .finally(()=>setLoading(false));
+  },[token]);
+
+  const macroMeta=[
+    {key:"g_protein",label:"Protein",color:"#60a5fa",goal:goalsT.g_protein,max:Math.max(goalsT.g_protein*1.2,180)},
+    {key:"g_carbs",  label:"Carbs",  color:"#fbbf24",goal:goalsT.g_carbs,  max:Math.max(goalsT.g_carbs*1.2,320)},
+    {key:"g_fat",    label:"Fat",    color:"#f97316",goal:goalsT.g_fat,    max:Math.max(goalsT.g_fat*1.2,100)},
+  ];
+  const insights=useMemo(()=>{
+    if(!weekData.length)return[];
+    const ins=[];
+    const lowProt=weekData.filter(d=>d.g_protein<goalsT.g_protein*0.8).length;
+    if(lowProt>=3)ins.push({icon:"💪",title:`Protein low ${lowProt} days`,body:"You're consistently under your protein goal. Try adding Grilled Chicken or Eggs.",color:"#60a5fa"});
+    const onGoal=weekData.filter(d=>d.calories>0&&Math.abs(d.calories-goalsT.calories)/goalsT.calories<0.1).length;
+    if(onGoal>=3)ins.push({icon:"🔥",title:"Calorie streak",body:`${onGoal} out of 7 days within 10% of your goal. Keep it up!`,color:"#00f5a0"});
+    const highCarb=weekData.filter(d=>d.g_carbs>goalsT.g_carbs*1.1).length;
+    if(highCarb>=2)ins.push({icon:"🍞",title:"High carb days",body:`You went over your carb goal ${highCarb} days. Try swapping bread for brown rice.`,color:"#fbbf24"});
+    if(!ins.length)ins.push({icon:"✅",title:"Looking good!",body:"You're hitting your goals consistently this week.",color:"#00f5a0"});
+    return ins;
+  },[weekData,goalsT]);
+
+  if(loading)return(
+    <div style={{paddingBottom:110,animation:"pageIn 0.35s ease",display:"flex",alignItems:"center",justifyContent:"center",minHeight:"80vh"}}>
+      <div style={{fontFamily:"'Space Mono',monospace",fontSize:11,color:"#334155"}}>Loading trends…</div>
+    </div>
+  );
+
+  const sel=weekData[activeDay]||{calories:0,g_protein:0,g_carbs:0,g_fat:0,date:"",meals:0};
+  const avgCal=weekData.length?Math.round(weekData.reduce((s,d)=>s+d.calories,0)/weekData.length):0;
+  const avgProt=weekData.length?Math.round(weekData.reduce((s,d)=>s+d.g_protein,0)/weekData.length):0;
+  const daysLogged=weekData.filter(d=>d.calories>0).length;
+  const daysOnGoal=weekData.filter(d=>d.calories>0&&Math.abs(d.calories-goalsT.calories)/goalsT.calories<0.1).length;
 
   return (
     <div style={{paddingBottom:110,animation:"pageIn 0.35s ease"}}>
@@ -1046,7 +1138,7 @@ function Trends() {
             <div style={{background:"rgba(15,20,40,0.9)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:22,padding:"18px 16px 10px",marginBottom:16,position:"relative",overflow:"hidden"}}>
               <div style={{position:"absolute",top:0,left:0,right:0,height:1,background:"linear-gradient(90deg,transparent,#00d9f540,transparent)"}}/>
               <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#334155",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:14}}>Calories · 7 days</div>
-              <LineChart activeDay={activeDay} onDayClick={setActiveDay}/>
+              <LineChart activeDay={activeDay} onDayClick={setActiveDay} weekData={weekData} goalsT={goalsT}/>
             </div>
             <div style={{background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:18,padding:16,marginBottom:16,animation:"fadeIn 0.25s ease"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:12}}>
@@ -1063,7 +1155,7 @@ function Trends() {
               </div>
               <div style={{paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.04)",display:"flex",justifyContent:"space-between"}}>
                 <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#475569"}}>vs calorie goal</span>
-                <span style={{fontFamily:"'Space Mono',monospace",fontSize:12,color:sel.calories>GOALS_T.calories?"#f87171":"#00f5a0"}}>{sel.calories>GOALS_T.calories?`+${sel.calories-GOALS_T.calories}`:`−${GOALS_T.calories-sel.calories}`} kcal</span>
+                <span style={{fontFamily:"'Space Mono',monospace",fontSize:12,color:sel.calories>GOALS_T.calories?"#f87171":"#00f5a0"}}>{sel.calories>goalsT.calories?`+${sel.calories-goalsT.calories}`:`−${goalsT.calories-sel.calories}`} kcal</span>
               </div>
             </div>
           </div>
@@ -1072,7 +1164,8 @@ function Trends() {
         {tab==="macros"&&(
           <div style={{animation:"fadeSlideUp 0.35s ease"}}>
             <div style={{display:"flex",gap:8,marginBottom:14}}>
-              {MACRO_META.map(m=>(
+              {macroMeta.map(m=>(
+              
                 <button key={m.key} onClick={()=>setActiveMetric(m.key)} style={{flex:1,padding:"9px 0",borderRadius:14,border:`1px solid ${activeMetric===m.key?`${m.color}40`:"rgba(255,255,255,0.05)"}`,cursor:"pointer",background:activeMetric===m.key?`${m.color}18`:"rgba(255,255,255,0.03)",fontFamily:"'Space Mono',monospace",fontSize:9,letterSpacing:"0.05em",color:activeMetric===m.key?m.color:"#334155",transition:"all 0.2s"}}>{m.label}</button>
               ))}
             </div>
@@ -1083,12 +1176,12 @@ function Trends() {
                   <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#334155",letterSpacing:"0.1em",textTransform:"uppercase"}}>{m.label} · 7 days</div>
                   <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#334155"}}>goal <span style={{color:m.color}}>{m.goal}g</span></div>
                 </div>
-                <MacroBarChart metric={activeMetric}/>
+                <MacroBarChart metric={activeMetric} weekData={weekData} macroMeta={macroMeta}/>
               </div>
             );})()}
             <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:18,overflow:"hidden"}}>
-              {WEEK_DATA.map((d,i)=>{
-                const meta=MACRO_META.find(m=>m.key===activeMetric),val=d[activeMetric],pct=Math.min(100,(val/meta.goal)*100),over=val>meta.goal;
+              {weekData.map((d,i)=>{
+                const meta=macroMeta.find(m=>m.key===activeMetric),val=d[activeMetric],pct=Math.min(100,(val/meta.goal)*100),over=val>meta.goal;
                 return(<div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderBottom:i<6?"1px solid rgba(255,255,255,0.03)":"none",background:d.day==="Today"?"rgba(255,255,255,0.02)":"transparent"}}>
                   <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:d.day==="Today"?"#f1f5f9":"#334155",width:28,flexShrink:0}}>{d.day==="Today"?"NOW":d.day}</div>
                   <div style={{flex:1,height:5,background:"rgba(255,255,255,0.04)",borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:over?"#f87171":meta.color,borderRadius:99}}/></div>
@@ -1102,7 +1195,8 @@ function Trends() {
         {tab==="insights"&&(
           <div style={{animation:"fadeSlideUp 0.35s ease"}}>
             <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#475569",marginBottom:18,lineHeight:1.6}}>Patterns detected over the past 7 days based on your dining hall meals.</div>
-            {INSIGHTS.map((ins,i)=>(
+            {insights.map((ins,i)=>(
+            
               <div key={i} style={{background:`${ins.color}08`,border:`1px solid ${ins.color}20`,borderRadius:18,padding:16,marginBottom:10,animation:`fadeSlideUp 0.4s ${i*0.08}s ease both`,display:"flex",gap:14,alignItems:"flex-start"}}>
                 <span style={{fontSize:22,flexShrink:0}}>{ins.icon}</span>
                 <div>
@@ -1116,10 +1210,10 @@ function Trends() {
               <div style={{display:"flex",gap:8}}>
                 {WEEK_DATA.map((d,i)=>(
                   <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-                    <div style={{width:"100%",aspectRatio:"1",borderRadius:10,background:d.meals>0?"linear-gradient(135deg,#00f5a0,#00d9f5)":"rgba(255,255,255,0.04)",border:d.day==="Today"?"2px solid #00f5a0":"none",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:d.meals>0?"0 4px 12px #00f5a030":"none"}}>
+                    <div style={{width:"100%",aspectRatio:"1",borderRadius:10,background:d.meals>0?"linear-gradient(135deg,#00f5a0,#00d9f5)":"rgba(255,255,255,0.04)",border:d.isToday?"2px solid #00f5a0":"none",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:d.meals>0?"0 4px 12px #00f5a030":"none"}}>
                       {d.meals>0&&<span style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#030912",fontWeight:700}}>{d.meals}</span>}
                     </div>
-                    <span style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:d.day==="Today"?"#00f5a0":"#334155"}}>{d.day==="Today"?"NOW":d.day}</span>
+                    <span style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:d.day==="Today"?"#00f5a0":"#334155"}}>{d.isToday?"NOW":d.day}</span>
                   </div>
                 ))}
               </div>
