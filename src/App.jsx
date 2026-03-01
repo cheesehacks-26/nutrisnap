@@ -484,13 +484,7 @@ function SnapPage({onNav}) {
     streamRef.current=null;
   },[]);
 
-  const [cameraError, setCameraError] = useState("");
-  const [cameraStatus, setCameraStatus] = useState("");
-  const [pendingStream, setPendingStream] = useState(null);
-
   const startCamera=useCallback(async()=>{
-    setCameraError("");
-    setCameraStatus("Requesting camera...");
     try{
       let stream;
       try {
@@ -498,29 +492,18 @@ function SnapPage({onNav}) {
       } catch {
         stream=await navigator.mediaDevices.getUserMedia({video:true});
       }
-      setPendingStream(stream);
+      streamRef.current=stream;
       setPhase("scanning");
+      setTimeout(()=>{
+        if(videoRef.current){
+          videoRef.current.srcObject=stream;
+          videoRef.current.play().catch(()=>{});
+        }
+      },50);
     }catch(e){
-      console.error("Camera error:", e);
-      setCameraError(e.name === "NotAllowedError"
-        ? "Camera permission denied. Please allow camera access in browser settings."
-        : "Could not access camera: " + e.message);
+      console.error("Camera error:",e);
     }
   },[]);
-
-  // Apply stream to video when phase changes to scanning
-  useEffect(()=>{
-    if(phase==="scanning" && pendingStream && videoRef.current){
-      setCameraStatus("Setting video src...");
-      videoRef.current.srcObject=pendingStream;
-      videoRef.current.play().then(()=>{
-        setCameraStatus("Playing!");
-      }).catch(e=>{
-        setCameraError("Failed to play video: " + e.message);
-      });
-      setPendingStream(null);
-    }
-  },[phase, pendingStream]);
 
   const runAnalysis=useCallback(async(fileOrEvent)=>{
     setPhase("analyzing");stopCamera();
@@ -632,31 +615,13 @@ function SnapPage({onNav}) {
             <button onClick={()=>fileInputRef.current?.click()} style={{flex:1,padding:16,borderRadius:18,cursor:"pointer",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:14,color:"#64748b"}}>🖼 Upload</button>
             <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={runAnalysis}/>
           </div>
-          {cameraError && (
-            <div style={{marginTop:16,padding:12,background:"rgba(248,113,113,0.1)",border:"1px solid rgba(248,113,113,0.3)",borderRadius:12,color:"#f87171",fontSize:13,fontFamily:"'DM Sans',sans-serif"}}>
-              {cameraError}
-            </div>
-          )}
-          {cameraStatus && !cameraError && (
-            <div style={{marginTop:16,padding:12,background:"rgba(0,245,160,0.1)",border:"1px solid rgba(0,245,160,0.3)",borderRadius:12,color:"#00f5a0",fontSize:13,fontFamily:"'DM Sans',sans-serif"}}>
-              {cameraStatus}
-            </div>
-          )}
         </div>
       )}
 
       {phase==="scanning"&&(
         <div style={{padding:"0 24px",animation:"fadeSlideUp 0.4s ease",position:"relative",zIndex:1}}>
           <div style={{position:"relative",borderRadius:24,overflow:"hidden",background:"#000",aspectRatio:"4/3",border:"1px solid rgba(0,245,160,0.2)",boxShadow:"0 0 40px #00f5a020"}}>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              onLoadedMetadata={() => console.log("Video metadata loaded:", videoRef.current?.videoWidth, "x", videoRef.current?.videoHeight)}
-              onPlay={() => console.log("Video playing")}
-              style={{width:"100%",height:"100%",objectFit:"cover"}}
-            />
+            <video ref={videoRef} autoPlay playsInline muted style={{width:"100%",height:"100%",objectFit:"cover"}}/>
             <div style={{position:"absolute",inset:0,overflow:"hidden",borderRadius:24,pointerEvents:"none"}}>
               <div style={{position:"absolute",left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,#00f5a0,#00d9f5,#00f5a0,transparent)",boxShadow:"0 0 20px #00f5a0",animation:"scanline 2.5s ease-in-out infinite"}}/>
             </div>
