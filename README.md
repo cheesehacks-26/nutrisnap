@@ -15,7 +15,7 @@ The React Compiler is not enabled on this template because of its impact on dev 
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
 
-# 🦡 NutriSnap — BadgerBite
+# 🦡 NutriSnap
 
 > **Cheesehacks 2026** · UW-Madison Dining Hall Nutrition Tracker
 
@@ -43,7 +43,7 @@ NutriSnap is a mobile-first web app that helps UW-Madison students eat smarter a
 | Inline CSS / JS | Styling (no external CSS lib) |
 | `fetch` API | Backend communication |
 
-### Backend — `badgerbite-api`
+### Backend — `nutrisnap-api`
 | Tool | Purpose |
 |------|---------|
 | Node.js + Express | API server |
@@ -74,8 +74,8 @@ Open [http://localhost:5173](http://localhost:5173)
 ### Backend
 
 ```bash
-git clone https://github.com/cheesehacks-26/badgerbite-api
-cd badgerbite-api
+git clone https://github.com/cheesehacks-26/nutrisnap-api
+cd nutrisnap-api
 npm install
 ```
 
@@ -94,7 +94,7 @@ npm start
 
 ## 🔌 API Overview
 
-Base URL: `https://badgerbite-api.onrender.com`
+Base URL: `https://nutrisnap-api.onrender.com`
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
@@ -116,7 +116,7 @@ Base URL: `https://badgerbite-api.onrender.com`
 
 ## 👥 Team
 
-Built at **Cheesehacks 2026** by the BadgerBite team 🧀
+Built at **Cheesehacks 2026** by the NutriSnap team 🧀
 
 ---
 

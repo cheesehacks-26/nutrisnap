@@ -1,4 +1,4 @@
-export const API_BASE = import.meta.env.VITE_API_BASE || "https://badgerbite-api.onrender.com";
+export const API_BASE = import.meta.env.VITE_API_BASE || "https://nutrisnap-api.onrender.com";
 const TOKEN_KEY = "bb_token";
 
 async function handleResponse(r) {
