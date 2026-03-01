@@ -165,7 +165,7 @@ function MealCard({meal,onDelete}) {
   );
 }
 
-const API_BASE = "https://badgerbite-api.onrender.com";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "https://badgerbite-api.onrender.com";
 const MEAL_FOR_HOUR = (h) => h < 11 ? "breakfast" : h < 16 ? "lunch" : "dinner";
 const TODAY = new Date().toISOString().slice(0,10);
 
@@ -451,6 +451,7 @@ function MatchCard({item,score,onConfirm,confirmed}) {
 function SnapPage({onNav}) {
   const { token } = useAuth();
   const [selectedHall,setSelectedHall]=useState("gordon-avenue-market");
+  const [selectedMeal,setSelectedMeal]=useState(()=>MEAL_FOR_HOUR(new Date().getHours()));
   const [phase,setPhase]=useState("idle");
   const [detections,setDetections]=useState([]);
   const [matches,setMatches]=useState([]);
@@ -458,9 +459,38 @@ function SnapPage({onNav}) {
   const [searchQuery,setSearchQuery]=useState("");
   const [showSuccess,setShowSuccess]=useState(false);
   const [logError,setLogError]=useState("");
+  const [snapError,setSnapError]=useState("");
   const videoRef=useRef(null);
   const streamRef=useRef(null);
   const fileInputRef=useRef(null);
+  const hallLabel = selectedHall
+    .replace(/-market$/,"")
+    .replace(/-/g," ")
+    .replace(/\b\w/g,(c)=>c.toUpperCase());
+
+  const fileToCompressedJpegBase64 = useCallback((file) => (
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX_DIM = 1600;
+          const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          resolve(jpegDataUrl.split(",")[1]);
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    })
+  ), []);
 
   const stopCamera=useCallback(()=>{
     if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());
@@ -489,18 +519,15 @@ function SnapPage({onNav}) {
   },[]);
 
   const runAnalysis=useCallback(async(fileOrEvent)=>{
-    setPhase("analyzing");stopCamera();
+    setPhase("analyzing");stopCamera();setSnapError("");
     try{
       // Get image from file input or video frame
       let base64Image="";
+      let mimeType="image/jpeg";
       const file=fileOrEvent?.target?.files?.[0];
       if(file){
-        base64Image=await new Promise((res,rej)=>{
-          const r=new FileReader();
-          r.onload=e=>res(e.target.result.split(",")[1]);
-          r.onerror=rej;
-          r.readAsDataURL(file);
-        });
+        // Normalize uploads to compressed JPEG to keep payloads under API limits.
+        base64Image=await fileToCompressedJpegBase64(file);
       } else if(videoRef.current){
         const canvas=document.createElement("canvas");
         canvas.width=videoRef.current.videoWidth||640;
@@ -508,11 +535,16 @@ function SnapPage({onNav}) {
         canvas.getContext("2d").drawImage(videoRef.current,0,0);
         base64Image=canvas.toDataURL("image/jpeg",0.8).split(",")[1];
       }
-      const meal=MEAL_FOR_HOUR(new Date().getHours());
+      if(!base64Image){
+        setSnapError("No image captured. Please try again.");
+        setPhase("idle");
+        return;
+      }
       const data=await apiPost("/api/snap",token,{
         image:base64Image,
+        mimeType,
         hall:selectedHall,
-        meal,
+        meal:selectedMeal,
       });
       // Map matched items into our match format
       const results=(data.matched||[]).map(item=>({
@@ -522,12 +554,32 @@ function SnapPage({onNav}) {
       }));
       setDetections((data.matched||[]).map(i=>({label:i.name,confidence:0.9})));
       setMatches(results);
-      setPhase(results.length>0?"results":"manual");
+      if(results.length>0){
+        setPhase("results");
+      } else {
+        setSnapError("No food items recognized in the photo. Try again or add manually.");
+        setPhase("manual");
+      }
     }catch(e){
-      // fallback to manual
-      setPhase("manual");
+      console.error("Snap error:",e);
+      const msgRaw=e.message||"";
+      let msg=msgRaw;
+      try{
+        const parsed=JSON.parse(msgRaw);
+        if(parsed?.error) msg=parsed.error;
+      }catch{}
+      if(msg.includes("401")||msg.includes("auth")){
+        setSnapError("Session expired. Please log in again.");
+      } else if(msg.includes("No menu available")){
+        setSnapError(`No ${selectedMeal} menu available for ${hallLabel} today. Try another meal or hall.`);
+      } else if(msg.includes("Vision")||msg.includes("502")){
+        setSnapError("Vision service error — please try again.");
+      } else {
+        setSnapError(msg || "Failed to analyze photo. Please try again or add manually.");
+      }
+      setPhase("idle");
     }
-  },[stopCamera,token,selectedHall]);
+  },[stopCamera,token,selectedHall,selectedMeal,fileToCompressedJpegBase64,hallLabel]);
 
   const handleLog=useCallback(async()=>{
     setLogError("");
@@ -546,22 +598,21 @@ function SnapPage({onNav}) {
         sugar_g:Math.round((item.nutrition?.g_sugar||0)*(item.servings||1)),
         sodium_mg:Math.round((item.nutrition?.mg_sodium||item.nutrition?.g_sodium||0)*(item.servings||1)),
         hall:selectedHall,
-        meal_type:MEAL_FOR_HOUR(new Date().getHours()),
+        meal_type:selectedMeal,
       })));
       setShowSuccess(true);
       setTimeout(()=>{setShowSuccess(false);setPhase("idle");setDetections([]);setMatches([]);setConfirmed({});stopCamera();},2200);
     }catch(e){setLogError("Failed to log. Try again.");}
-  },[confirmed,stopCamera,token,selectedHall]);
+  },[confirmed,stopCamera,token,selectedHall,selectedMeal]);
 
   useEffect(()=>()=>stopCamera(),[stopCamera]);
   const [liveMenu,setLiveMenu]=useState([]);
   useEffect(()=>{
-    const meal=MEAL_FOR_HOUR(new Date().getHours());
-    fetch(`${API_BASE}/api/menu?hall=${selectedHall}&meal=${meal}`)
+    fetch(`${API_BASE}/api/menu?hall=${selectedHall}&meal=${selectedMeal}`)
       .then(r=>r.json()).then(d=>{if(d.items&&d.items.length>0){
         setLiveMenu(d.items.filter(i=>i.name&&i.name.trim()).map(i=>({...i,nutrition:{calories:i.nutrition.calories,g_protein:i.nutrition.g_protein,g_carbs:i.nutrition.g_carbs,g_fat:i.nutrition.g_fat,g_sugar:i.nutrition.g_sugar,mg_sodium:i.nutrition.mg_sodium},food_tags:i.food_tags||[]})));
       }}).catch(()=>{});
-  },[selectedHall]);
+  },[selectedHall,selectedMeal]);
   const filteredMenu=liveMenu.filter(i=>(i.name||"").toLowerCase().includes(searchQuery.toLowerCase())||(i.station||"").toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
@@ -578,6 +629,34 @@ function SnapPage({onNav}) {
           </button>
         </div>
       </div>
+
+      <div style={{padding:"0 24px 12px",position:"relative",zIndex:1}}>
+        <div style={{display:"flex",gap:8,marginBottom:10}}>
+          {["breakfast","lunch","dinner"].map(m=>(
+            <button key={m} onClick={()=>setSelectedMeal(m)} style={{flex:1,padding:"8px 0",borderRadius:12,border:`1px solid ${selectedMeal===m?"rgba(0,245,160,0.3)":"transparent"}`,cursor:"pointer",background:selectedMeal===m?"rgba(0,245,160,0.12)":"rgba(255,255,255,0.03)",fontFamily:"'Space Mono',monospace",fontSize:10,letterSpacing:"0.06em",textTransform:"uppercase",color:selectedMeal===m?"#00f5a0":"#334155",transition:"all 0.2s"}}>{m}</button>
+          ))}
+        </div>
+        <select
+          value={selectedHall}
+          onChange={(e)=>setSelectedHall(e.target.value)}
+          style={{width:"100%",padding:"10px 12px",borderRadius:12,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",color:"#cbd5e1",fontFamily:"'DM Sans',sans-serif",fontSize:13}}
+        >
+          <option value="gordon-avenue-market">Gordon Ave Market</option>
+          <option value="four-lakes-market">Four Lakes Market</option>
+          <option value="rhetas-market">Rhetas Market</option>
+          <option value="lizs-market">Liz's Market</option>
+          <option value="carsons-market">Carson's Market</option>
+          <option value="lowell-market">Lowell Market</option>
+        </select>
+      </div>
+
+      {snapError&&(
+        <div style={{margin:"0 24px 12px",padding:"12px 16px",borderRadius:14,background:"rgba(248,113,113,0.1)",border:"1px solid rgba(248,113,113,0.25)",display:"flex",alignItems:"center",gap:10,animation:"fadeSlideUp 0.3s ease",position:"relative",zIndex:1}}>
+          <span style={{fontSize:16}}>⚠️</span>
+          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#fca5a5",flex:1}}>{snapError}</span>
+          <button onClick={()=>setSnapError("")} style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:16,padding:0}}>✕</button>
+        </div>
+      )}
 
       {phase==="idle"&&(
         <div style={{padding:"0 24px",animation:"fadeSlideUp 0.5s ease",position:"relative",zIndex:1}}>
@@ -729,7 +808,7 @@ const CAT_COLOR={entree:"#60a5fa",meat:"#f87171",grain:"#fbbf24",vegetable:"#4ad
 function FoodCard({item,saved,onSave}) {
   const [expanded,setExpanded]=useState(false);
   const {name,station,food_category,serving_size,nutrition,food_tags}=item;
-  const pct=v=>Math.min(100,(v/60)*100);
+  if(item.is_build_your_own&&item.byo_components) return <BYOCard item={item} onSave={onSave}/>;
   return (
     <div style={{background:expanded?"rgba(15,20,40,0.95)":"rgba(255,255,255,0.025)",border:`1px solid ${expanded?"rgba(255,255,255,0.1)":"rgba(255,255,255,0.05)"}`,borderRadius:18,marginBottom:10,overflow:"hidden",transition:"all 0.3s cubic-bezier(0.4,0,0.2,1)"}}>
       <div onClick={()=>setExpanded(e=>!e)} style={{display:"flex",alignItems:"center",padding:"14px 16px",cursor:"pointer",gap:12}}>
@@ -767,6 +846,107 @@ function FoodCard({item,saved,onSave}) {
           <button onClick={e=>{e.stopPropagation();onSave(item.food_id);}} style={{width:"100%",padding:12,borderRadius:14,border:"none",cursor:"pointer",background:saved?"linear-gradient(135deg,#00f5a0,#00d9f5)":"rgba(255,255,255,0.05)",fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:13,color:saved?"#030912":"#64748b",transition:"all 0.25s ease"}}>
             {saved?"✓ Added · tap to remove":"+ Add to log"}
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BYOCard({item,onSave}) {
+  const [expanded,setExpanded]=useState(false);
+  const [selected,setSelected]=useState({});
+  const {name,station,byo_components}=item;
+
+  const toggle=(catIdx,itemIdx)=>{
+    setSelected(prev=>{
+      const key=`${catIdx}-${itemIdx}`;
+      const next={...prev};
+      if(next[key])delete next[key]; else next[key]=byo_components[catIdx].items[itemIdx];
+      return next;
+    });
+  };
+
+  const selArr=Object.values(selected);
+  const totals=selArr.reduce((acc,s)=>({
+    calories:acc.calories+(s.nutrition?.calories||0),
+    g_protein:acc.g_protein+(s.nutrition?.g_protein||0),
+    g_carbs:acc.g_carbs+(s.nutrition?.g_carbs||0),
+    g_fat:acc.g_fat+(s.nutrition?.g_fat||0),
+  }),{calories:0,g_protein:0,g_carbs:0,g_fat:0});
+
+  return (
+    <div style={{background:expanded?"rgba(15,20,40,0.95)":"linear-gradient(135deg,rgba(168,85,247,0.06),rgba(0,245,160,0.04))",border:`1px solid ${expanded?"rgba(168,85,247,0.25)":"rgba(168,85,247,0.12)"}`,borderRadius:18,marginBottom:10,overflow:"hidden",transition:"all 0.3s cubic-bezier(0.4,0,0.2,1)"}}>
+      <div onClick={()=>setExpanded(e=>!e)} style={{display:"flex",alignItems:"center",padding:"14px 16px",cursor:"pointer",gap:12}}>
+        <div style={{width:22,height:22,borderRadius:8,flexShrink:0,background:"linear-gradient(135deg,#a855f7,#00f5a0)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11}}>🛠</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:14,color:"#f1f5f9",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{name}</div>
+          <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#a78bfa",marginTop:2}}>{STATION_ICONS[station]} {station} · {byo_components.reduce((n,c)=>n+c.items.length,0)} options</div>
+        </div>
+        {selArr.length>0&&(
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <div style={{fontFamily:"'Space Mono',monospace",fontSize:15,fontWeight:700,color:"#f472b6"}}>{totals.calories}</div>
+            <div style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:"#a78bfa"}}>{selArr.length} picked</div>
+          </div>
+        )}
+        {selArr.length===0&&(
+          <span style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#a78bfa",background:"rgba(168,85,247,0.12)",padding:"3px 10px",borderRadius:99,flexShrink:0}}>BUILD</span>
+        )}
+        <span style={{color:"#a78bfa",fontSize:12,flexShrink:0,transition:"transform 0.3s",transform:expanded?"rotate(180deg)":"none"}}>▾</span>
+      </div>
+
+      {expanded&&(
+        <div style={{padding:"0 16px 16px",borderTop:"1px solid rgba(168,85,247,0.1)",animation:"fadeIn 0.2s ease"}}>
+          {byo_components.map((cat,ci)=>(
+            <div key={ci} style={{marginTop:14}}>
+              <div style={{fontFamily:"'Space Mono',monospace",fontSize:10,color:"#a78bfa",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
+                <div style={{height:1,flex:1,background:"rgba(168,85,247,0.15)"}}/>
+                {cat.label}
+                <div style={{height:1,flex:1,background:"rgba(168,85,247,0.15)"}}/>
+              </div>
+              {cat.items.map((sub,si)=>{
+                const key=`${ci}-${si}`;
+                const active=!!selected[key];
+                const n=sub.nutrition||{};
+                return (
+                  <div key={si} onClick={()=>toggle(ci,si)}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",marginBottom:4,borderRadius:12,cursor:"pointer",
+                      background:active?"rgba(0,245,160,0.08)":"rgba(255,255,255,0.02)",
+                      border:`1px solid ${active?"rgba(0,245,160,0.25)":"rgba(255,255,255,0.04)"}`,
+                      transition:"all 0.2s"}}>
+                    <div style={{width:18,height:18,borderRadius:6,border:`2px solid ${active?"#00f5a0":"rgba(255,255,255,0.15)"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,background:active?"rgba(0,245,160,0.15)":"transparent",transition:"all 0.2s"}}>
+                      {active&&<span style={{color:"#00f5a0",fontSize:11,fontWeight:700}}>✓</span>}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:13,color:active?"#f1f5f9":"#94a3b8"}}>{sub.name}</div>
+                      <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#475569",marginTop:1}}>{sub.serving_size}</div>
+                    </div>
+                    <div style={{display:"flex",gap:6,alignItems:"baseline",flexShrink:0}}>
+                      <span style={{fontFamily:"'Space Mono',monospace",fontSize:13,fontWeight:700,color:active?"#f472b6":"#475569"}}>{n.calories}</span>
+                      <span style={{fontFamily:"'Space Mono',monospace",fontSize:8,color:"#334155"}}>kcal</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+
+          {selArr.length>0&&(
+            <div style={{marginTop:16,background:"rgba(0,245,160,0.04)",border:"1px solid rgba(0,245,160,0.15)",borderRadius:14,padding:12}}>
+              <div style={{fontFamily:"'Space Mono',monospace",fontSize:9,color:"#475569",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8}}>YOUR BUILD TOTAL</div>
+              <div style={{display:"flex",gap:8,marginBottom:10}}>
+                {[{l:"Cal",v:totals.calories,u:"",c:"#f472b6"},{l:"Protein",v:totals.g_protein,u:"g",c:"#60a5fa"},{l:"Carbs",v:totals.g_carbs,u:"g",c:"#fbbf24"},{l:"Fat",v:totals.g_fat,u:"g",c:"#f97316"}].map(({l,v,c,u})=>(
+                  <div key={l} style={{flex:1,textAlign:"center"}}>
+                    <div style={{fontFamily:"'Space Mono',monospace",fontSize:14,fontWeight:700,color:c}}>{Math.round(v*10)/10}{u}</div>
+                    <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:8,color:"#475569",textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={e=>{e.stopPropagation();onSave(item.food_id);}}
+                style={{width:"100%",padding:12,borderRadius:14,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#a855f7,#00f5a0)",fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:13,color:"#030912",transition:"all 0.25s ease"}}>
+                + Add build to log
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -873,7 +1053,11 @@ function MenuBrowser() {
     if(showSaved)list=list.filter(i=>savedFoodIds.has(String(i.food_id)));
     if(selectedStation!=="All")list=list.filter(i=>i.station===selectedStation);
     if(activeTags.length)list=list.filter(i=>activeTags.every(t=>i.food_tags.includes(t)));
-    if(searchQuery.trim()){const q=searchQuery.toLowerCase();list=list.filter(i=>(i.name||'').toLowerCase().includes(q)||(i.station||'').toLowerCase().includes(q));}
+    if(searchQuery.trim()){const q=searchQuery.toLowerCase();list=list.filter(i=>{
+      if((i.name||'').toLowerCase().includes(q)||(i.station||'').toLowerCase().includes(q))return true;
+      if(i.byo_components)return i.byo_components.some(cat=>cat.items.some(sub=>sub.name.toLowerCase().includes(q)));
+      return false;
+    });}
     switch(sortKey){
       case"cal_asc":return[...list].sort((a,b)=>a.nutrition.calories-b.nutrition.calories);
       case"cal_desc":return[...list].sort((a,b)=>b.nutrition.calories-a.nutrition.calories);
