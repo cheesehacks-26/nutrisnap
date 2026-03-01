@@ -2,7 +2,21 @@ export const TAG_COLOR = { Vegan: "#4ade80", Vegetarian: "#86efac", "Gluten-Free
 export const TAG_STYLE = {
   Vegan:         { bg: "#4ade8018", border: "#4ade8040", color: "#4ade80" },
   Vegetarian:    { bg: "#86efac18", border: "#86efac40", color: "#86efac" },
+  Halal:         { bg: "#60a5fa18", border: "#60a5fa40", color: "#60a5fa" },
   "Gluten-Free": { bg: "#fbbf2418", border: "#fbbf2440", color: "#fbbf24" },
+  "Dairy-Free":  { bg: "#e879f918", border: "#e879f940", color: "#e879f9" },
+  "Egg-Free":    { bg: "#fb923c18", border: "#fb923c40", color: "#fb923c" },
+  "Soy-Free":    { bg: "#a78bfa18", border: "#a78bfa40", color: "#a78bfa" },
+};
+
+export const PROFILE_TO_MENU_TAG = {
+  vegan:       "Vegan",
+  vegetarian:  "Vegetarian",
+  halal:       "Halal",
+  gluten_free: "Gluten-Free",
+  dairy_free:  "Dairy-Free",
+  no_eggs:     "Egg-Free",
+  no_soy:      "Soy-Free",
 };
 
 export const MEAL_ICONS = { breakfast: "\uD83C\uDF73", lunch: "\u2600\uFE0F", dinner: "\uD83C\uDF19", snack: "\uD83C\uDF4E" };

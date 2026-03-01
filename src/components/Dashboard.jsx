@@ -5,53 +5,65 @@ import { MEAL_ICONS, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, TODAY, TAG_COLOR } from 
 
 // ── Calorie Ring ────────────────────────────────────────────────────
 function CalorieRing({ consumed, goal }) {
-  const r = 72, stroke = 8, cx = 88, circ = 2 * Math.PI * r;
+  const size = 160, stroke = 10, r = (size - stroke) / 2, cx = size / 2, circ = 2 * Math.PI * r;
   const over = consumed > goal;
-  const pct = Math.min(1, consumed / goal);
+  const pct = goal > 0 ? Math.min(1, consumed / goal) : 0;
   const [anim, setAnim] = useState(0);
   useEffect(() => { const t = setTimeout(() => setAnim(pct), 120); return () => clearTimeout(t); }, [pct]);
+  const grade = pct >= 0.9 ? "A" : pct >= 0.7 ? "B" : pct >= 0.5 ? "C" : "D";
+  const gradeColor = over ? "var(--danger)" : pct >= 0.7 ? "var(--accent)" : pct >= 0.5 ? "var(--warning)" : "var(--text-dim)";
+
   return (
-    <div style={{ position: "relative", width: 176, height: 176, flexShrink: 0 }}>
-      <svg width="176" height="176" style={{ transform: "rotate(-90deg)" }} aria-hidden="true">
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)", filter: anim > 0.5 ? `drop-shadow(0 0 12px ${over ? "var(--danger)" : "var(--accent)"})` : "none", transition: "filter 1s ease" }} aria-hidden="true">
         <defs>
-          <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   stopColor={over ? "var(--danger)" : "var(--accent)"} />
-            <stop offset="100%" stopColor={over ? "var(--danger)" : "var(--accent2)"} />
+          <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={over ? "var(--danger)" : "var(--accent)"} />
+            <stop offset="50%" stopColor={over ? "#ef4444" : "var(--accent2)"} />
+            <stop offset="100%" stopColor={over ? "var(--danger)" : "#a78bfa"} />
           </linearGradient>
         </defs>
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--border-faint)" strokeWidth={stroke} />
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke="url(#rg)" strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={`${circ * anim} ${circ}`}
-          style={{ transition: "stroke-dasharray 1.2s cubic-bezier(0.34,1.2,0.64,1)" }} />
+        <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--border-faint)" strokeWidth={stroke - 4} opacity="0.5" />
+        {anim > 0 && (
+          <circle cx={cx} cy={cx} r={r} fill="none" stroke="url(#rg)" strokeWidth={stroke} strokeLinecap="round"
+            strokeDasharray={`${circ * anim} ${circ}`}
+            style={{ transition: "stroke-dasharray 1.4s cubic-bezier(0.34,1.56,0.64,1)" }} />
+        )}
       </svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 28, fontWeight: 700, color: over ? "var(--danger)" : "var(--text-primary)", lineHeight: 1 }}>{consumed}</div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>of {goal} kcal</div>
-        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: over ? "var(--danger)" : "var(--accent)", marginTop: 6, background: over ? "var(--danger-bg)" : "var(--accent)15", padding: "2px 10px", borderRadius: 99, border: `1px solid ${over ? "var(--danger-border)" : "var(--accent)30"}` }}>
-          {over ? `+${consumed - goal} over` : `${goal - consumed} left`}
-        </div>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 32, fontWeight: 800, color: over ? "var(--danger)" : "var(--text-primary)", lineHeight: 1, letterSpacing: "-0.02em" }}>{consumed}</div>
+        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", marginTop: 4, letterSpacing: "0.05em" }}>/ {goal} kcal</div>
+      </div>
+      <div style={{ position: "absolute", top: 4, right: 4, width: 28, height: 28, borderRadius: "50%", background: `${gradeColor}20`, border: `2px solid ${gradeColor}`, display: "flex", alignItems: "center", justifyContent: "center", animation: pct >= 0.9 && !over ? "pulse-ring 2s infinite" : "none" }}>
+        <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 12, color: gradeColor }}>{over ? "!" : grade}</span>
       </div>
     </div>
   );
 }
 
 // ── Macro Progress Row ───────────────────────────────────────────────
-function MacroRow({ label, consumed, goal, color }) {
-  const pct = Math.min(100, (consumed / goal) * 100);
+function MacroRow({ label, consumed, goal, color, delay }) {
+  const rawPct = goal > 0 ? (consumed / goal) * 100 : 0;
+  const over = rawPct > 100;
+  const barPct = Math.min(100, rawPct);
   const [anim, setAnim] = useState(0);
-  useEffect(() => { const t = setTimeout(() => setAnim(pct), 200); return () => clearTimeout(t); }, [pct]);
+  useEffect(() => { const t = setTimeout(() => setAnim(barPct), delay || 200); return () => clearTimeout(t); }, [barPct, delay]);
+  const barColor = over ? "var(--danger)" : color;
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{label}</span>
-        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color }}>
-          {consumed}g <span style={{ color: "var(--text-dim)" }}>/ {goal}g</span>
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+        <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</span>
+        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700, color: over ? "var(--danger)" : color }}>
+          {consumed}<span style={{ color: "var(--text-dim)", fontWeight: 400 }}>/{goal}g</span>
         </span>
       </div>
-      <div style={{ height: 6, background: "var(--border-faint)", borderRadius: 99, overflow: "hidden" }} role="progressbar" aria-valuenow={consumed} aria-valuemax={goal} aria-label={label}>
-        <div style={{ height: "100%", width: `${anim}%`, background: `linear-gradient(90deg,${color},${color}cc)`, borderRadius: 99, transition: "width 1s cubic-bezier(0.34,1.2,0.64,1)", position: "relative" }}>
-          <div style={{ position: "absolute", right: 0, top: -1, width: 8, height: 8, borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}` }} />
+      <div style={{ height: 8, background: "var(--border-faint)", borderRadius: 99, overflow: "hidden", position: "relative" }} role="progressbar" aria-valuenow={consumed} aria-valuemax={goal} aria-label={label}>
+        <div style={{ height: "100%", width: `${anim}%`, background: `linear-gradient(90deg, ${barColor}, ${barColor}dd)`, borderRadius: 99, transition: "width 1.2s cubic-bezier(0.34,1.56,0.64,1)", boxShadow: `0 0 10px ${barColor}50`, position: "relative" }}>
+          {anim > 2 && <div style={{ position: "absolute", right: -1, top: "50%", transform: "translateY(-50%)", width: 12, height: 12, borderRadius: "50%", background: barColor, boxShadow: `0 0 8px ${barColor}`, border: "2px solid var(--bg-surface)" }} />}
         </div>
+      </div>
+      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: over ? "var(--danger)" : "var(--text-dim)", marginTop: 4, textAlign: "right" }}>
+        {over ? `+${Math.round(consumed - goal)}g over` : `${Math.round(rawPct)}%`}
       </div>
     </div>
   );
@@ -220,30 +232,45 @@ export default function Dashboard({ onNav }) {
         {error && <div style={{ background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 14, padding: "11px 16px", fontSize: 13, color: "var(--danger)", marginBottom: 16 }} role="alert">{error}</div>}
 
         {/* Nutrition card */}
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 24, padding: 22, marginBottom: 16, position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,var(--accent)40,transparent)" }} aria-hidden="true" />
-          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 18 }}>Today {"\u00B7"} {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 24, padding: "22px 20px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent)", opacity: 0.6 }} aria-hidden="true" />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, var(--border), transparent)" }} aria-hidden="true" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Today {"\u00B7"} {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--accent)", background: "var(--accent)12", padding: "3px 10px", borderRadius: 99, border: "1px solid var(--accent)25", letterSpacing: "0.05em" }}>
+              {todayLogs.length} meal{todayLogs.length !== 1 ? "s" : ""} logged
+            </div>
+          </div>
           {loading ? (
-            <div style={{ height: 176, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontFamily: "'Space Mono',monospace", fontSize: 11 }} role="status" aria-live="polite">Loading…</div>
+            <div style={{ height: 176, display: "flex", alignItems: "center", justifyContent: "center" }} role="status" aria-live="polite">
+              <div style={{ width: 24, height: 24, border: "3px solid var(--border-faint)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+            </div>
           ) : (
             <>
-              <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                 <CalorieRing consumed={totals.calories} goal={calGoal} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <MacroRow label="Protein" consumed={totals.g_protein} goal={protGoal} color="var(--protein)" />
-                  <MacroRow label="Carbs"   consumed={totals.g_carbs}   goal={carbGoal} color="var(--carbs-color)" />
-                  <MacroRow label="Fat"     consumed={totals.g_fat}     goal={fatGoal}  color="var(--fat-color)" />
+                  <MacroRow label="Protein" consumed={totals.g_protein} goal={protGoal} color="var(--protein)" delay={200} />
+                  <MacroRow label="Carbs"   consumed={totals.g_carbs}   goal={carbGoal} color="var(--carbs-color)" delay={350} />
+                  <MacroRow label="Fat"     consumed={totals.g_fat}     goal={fatGoal}  color="var(--fat-color)" delay={500} />
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--border-faint)" }}>
-                {[
-                  { label: "meals",  value: todayLogs.length },
-                  { label: "cal",    value: `${Math.round(totals.calories / calGoal * 100)}%` },
-                  { label: "protein", value: `${Math.round(totals.g_protein / protGoal * 100)}%` },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ flex: 1, textAlign: "center", background: "var(--bg-input)", borderRadius: 12, padding: "10px 6px" }}>
-                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{value}</div>
-                    <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-faint)" }}>
+                {(() => {
+                  const calPct = calGoal > 0 ? Math.round(totals.calories / calGoal * 100) : 0;
+                  const protPct = protGoal > 0 ? Math.round(totals.g_protein / protGoal * 100) : 0;
+                  const calLeft = Math.max(0, calGoal - totals.calories);
+                  const calOver = totals.calories > calGoal;
+                  const protOver = totals.g_protein > protGoal;
+                  return [
+                    { label: calOver ? "over" : "left", value: calOver ? `+${totals.calories - calGoal}` : `${calLeft}`, unit: "kcal", c: calOver ? "var(--danger)" : "var(--cal-color)" },
+                    { label: "cal %", value: `${calPct}`, unit: "%", c: calPct > 100 ? "var(--danger)" : "var(--accent)" },
+                    { label: "protein", value: `${protPct}`, unit: "%", c: protOver ? "var(--danger)" : "var(--protein)" },
+                  ];
+                })().map(({ label, value, unit, c }) => (
+                  <div key={label} style={{ flex: 1, textAlign: "center", background: `${c}08`, borderRadius: 14, padding: "10px 6px", border: `1px solid ${c}15` }}>
+                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 17, fontWeight: 700, color: c }}>{value}<span style={{ fontSize: 10, opacity: 0.7 }}>{unit}</span></div>
+                    <div style={{ fontSize: 9, color: "var(--text-dim)", marginTop: 3, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{label}</div>
                   </div>
                 ))}
               </div>

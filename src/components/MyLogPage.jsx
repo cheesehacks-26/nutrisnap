@@ -45,7 +45,7 @@ function MealCard({ meal, onDelete, deletingLogId }) {
                     disabled={deletingLogId === d.log_id}
                     aria-label={`Remove ${d.name} from log`}
                     style={{ background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 10, padding: "6px 10px", cursor: deletingLogId === d.log_id ? "not-allowed" : "pointer", fontFamily: "'Space Mono',monospace", fontSize: 10, fontWeight: 600, color: "var(--danger)", opacity: deletingLogId === d.log_id ? 0.7 : 1 }}
-                  >{deletingLogId === d.log_id ? "Removing…" : "Remove"}</button>
+                  >{deletingLogId === d.log_id ? "Removing\u2026" : "Remove"}</button>
                 )}
               </div>
             </div>
@@ -59,7 +59,6 @@ function MealCard({ meal, onDelete, deletingLogId }) {
 export default function MyLogPage({ onNav }) {
   const { token } = useAuth();
   const [todayLogs, setTodayLogs] = useState([]);
-  const [todayTotals, setTodayTotals] = useState({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingLogId, setDeletingLogId] = useState(null);
@@ -84,7 +83,6 @@ export default function MyLogPage({ onNav }) {
     apiGet(`/api/log?date=${TODAY}`, token)
       .then(lData => {
         setTodayLogs(parseLogs(lData.logs));
-        setTodayTotals(lData.totals || { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
       })
       .catch(e => {
         console.error("Log load error:", e);
@@ -102,7 +100,6 @@ export default function MyLogPage({ onNav }) {
       await apiDelete(`/api/log/${logId}`, token);
       const lData = await apiGet(`/api/log?date=${TODAY}`, token);
       setTodayLogs(parseLogs(lData.logs));
-      setTodayTotals(lData.totals || { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
     } catch (e) {
       console.error("Delete log error:", e);
       setError("Could not remove item. Try again.");
@@ -111,7 +108,6 @@ export default function MyLogPage({ onNav }) {
     }
   };
 
-  const totals = { calories: todayTotals.calories || 0, g_protein: todayTotals.protein_g || 0, g_carbs: todayTotals.carbs_g || 0, g_fat: todayTotals.fat_g || 0 };
   const loggedMealTypes = new Set(todayLogs.map(m => m.meal_type));
   const unloggedMeals = ["breakfast", "lunch", "dinner"].filter(m => !loggedMealTypes.has(m));
 
@@ -131,24 +127,6 @@ export default function MyLogPage({ onNav }) {
       <div style={{ padding: "0 22px", position: "relative", zIndex: 1 }}>
         {error && <div style={{ background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 14, padding: "11px 16px", fontSize: 13, color: "var(--danger)", marginBottom: 16 }} role="alert">{error}</div>}
 
-        {/* Today totals */}
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 20, padding: 18, marginBottom: 20 }}>
-          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Today&apos;s totals</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-            {[
-              { l: "Cal", v: totals.calories, u: "kcal", c: "var(--cal-color)" },
-              { l: "Protein", v: totals.g_protein, u: "g", c: "var(--protein)" },
-              { l: "Carbs", v: totals.g_carbs, u: "g", c: "var(--carbs-color)" },
-              { l: "Fat", v: totals.g_fat, u: "g", c: "var(--fat-color)" },
-            ].map(({ l, v, u, c }) => (
-              <div key={l} style={{ background: `${c}15`, border: `1px solid ${c}40`, borderRadius: 12, padding: "10px 8px", textAlign: "center" }}>
-                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, fontWeight: 700, color: c }}>{v}<span style={{ fontSize: 9, opacity: 0.9 }}> {u}</span></div>
-                <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.06em" }}>{l}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Meals */}
         <section style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -158,7 +136,7 @@ export default function MyLogPage({ onNav }) {
           {loading ? (
             [0, 1, 2].map(i => <div key={i} style={{ height: 64, borderRadius: 18, marginBottom: 10, background: "var(--bg-card)", backgroundImage: "linear-gradient(90deg,transparent,var(--border-faint),transparent)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />)
           ) : todayLogs.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-dim)", padding: "16px 0" }}>Nothing logged yet today. Log from Snap or Menu.</p>
+            <p style={{ fontSize: 13, color: "var(--text-dim)", padding: "16px 0" }}>Nothing logged yet today. Tap a meal below to browse the menu.</p>
           ) : (
             todayLogs.map(m => <MealCard key={m.meal_id} meal={m} onDelete={handleDeleteLog} deletingLogId={deletingLogId} />)
           )}
@@ -166,7 +144,7 @@ export default function MyLogPage({ onNav }) {
             <>
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 16, marginBottom: 8 }}>Add a meal</div>
               {unloggedMeals.map(meal => (
-                <button key={meal} onClick={() => onNav("snap")} aria-label={`Log ${meal}`} style={{ border: "1px dashed var(--border)", borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 8, width: "100%", background: "none" }}>
+                <button key={meal} onClick={() => onNav("menu")} aria-label={`Log ${meal}`} style={{ border: "1px dashed var(--border)", borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 8, width: "100%", background: "none" }}>
                   <div style={{ width: 40, height: 40, borderRadius: 14, background: "var(--bg-input)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{MEAL_ICONS[meal]}</div>
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-dim)", textTransform: "capitalize" }}>{meal}</div>

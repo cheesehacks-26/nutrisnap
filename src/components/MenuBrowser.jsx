@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../auth.jsx";
 import { apiGet, apiPost, apiDelete, API_BASE } from "../utils/api.js";
-import { TAG_STYLE, STATION_ICONS, CAT_COLOR, TODAY, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, MAX_SERVINGS } from "../utils/constants.js";
+import { TAG_STYLE, STATION_ICONS, CAT_COLOR, TODAY, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, MAX_SERVINGS, PROFILE_TO_MENU_TAG } from "../utils/constants.js";
 
 function useDebounce(value, delay) {
   const [debounced, setDebounced] = useState(value);
@@ -12,7 +12,7 @@ function useDebounce(value, delay) {
   return debounced;
 }
 
-const DIET_TAGS    = ["Vegan", "Vegetarian", "Gluten-Free"];
+const DIET_TAGS = ["Vegan", "Vegetarian", "Halal", "Gluten-Free", "Dairy-Free", "Egg-Free", "Soy-Free"];
 const SORT_OPTIONS = [
   { key: "default",   label: "Default"   },
   { key: "cal_asc",   label: "Cal \u2191"     },
@@ -280,6 +280,7 @@ export default function MenuBrowser({ onNav }) {
   const { token } = useAuth();
   const [selectedStation, setSelectedStation] = useState("All");
   const [activeTags, setActiveTags]           = useState([]);
+  const [profileSynced, setProfileSynced]     = useState(false);
   const [sortKey, setSortKey]                 = useState("default");
   const [searchQuery, setSearchQuery]         = useState("");
   const [mealType, setMealType]               = useState(() => { const h = new Date().getHours(); return MEAL_FOR_RECOMMEND(h); });
@@ -305,6 +306,18 @@ export default function MenuBrowser({ onNav }) {
       .then(d => setDiningHalls(d.dining_halls || []))
       .catch(e => console.error("Dining halls error:", e));
   }, []);
+
+  useEffect(() => {
+    if (!token || profileSynced) return;
+    apiGet("/api/profile", token)
+      .then(d => {
+        const prefs = d.profile?.dietary_restrictions || [];
+        const tags = prefs.map(k => PROFILE_TO_MENU_TAG[k]).filter(Boolean);
+        if (tags.length > 0) setActiveTags(tags);
+      })
+      .catch(() => {})
+      .finally(() => setProfileSynced(true));
+  }, [token, profileSynced]);
 
   // When dining is closed, use next meal for recommendations
   const effectiveMealForRecs = MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" ? MEAL_FOR_RECOMMEND(new Date().getHours()) : mealType;
