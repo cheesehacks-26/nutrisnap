@@ -6,6 +6,7 @@ import { TAG_STYLE, STATION_ICONS, CAT_COLOR, TODAY, MEAL_FOR_HOUR, MEAL_FOR_REC
 const DIET_TAGS    = ["Vegan", "Vegetarian", "Gluten-Free"];
 const SORT_OPTIONS = [
   { key: "default",   label: "Default"   },
+  { key: "station",   label: "Station"   },
   { key: "cal_asc",   label: "Cal \u2191"     },
   { key: "cal_desc",  label: "Cal \u2193"     },
   { key: "protein",   label: "Protein \u2191" },
@@ -246,6 +247,7 @@ export default function MenuBrowser() {
       list = list.filter(i => (i.name || "").toLowerCase().includes(q) || (i.station || "").toLowerCase().includes(q));
     }
     switch (sortKey) {
+      case "station":  return [...list].sort((a, b) => (a.station || "").localeCompare(b.station || ""));
       case "cal_asc":  return [...list].sort((a, b) => (a.nutrition?.calories ?? 0) - (b.nutrition?.calories ?? 0));
       case "cal_desc": return [...list].sort((a, b) => (b.nutrition?.calories ?? 0) - (a.nutrition?.calories ?? 0));
       case "protein":  return [...list].sort((a, b) => (b.nutrition?.g_protein ?? 0) - (a.nutrition?.g_protein ?? 0));
@@ -260,8 +262,8 @@ export default function MenuBrowser() {
 
   return (
     <main style={{ paddingBottom: 120, animation: "pageIn 0.35s ease" }}>
-      {/* Sticky header */}
-      <div style={{ padding: "52px 20px 0", position: "sticky", top: 0, background: "linear-gradient(180deg, var(--bg) 70%, transparent)", zIndex: 20, paddingBottom: 8 }}>
+      {/* Sticky header — solid background so menu doesn't show through when scrolling */}
+      <div style={{ padding: "52px 20px 0", position: "sticky", top: 0, background: "var(--bg)", zIndex: 20, paddingBottom: 8, borderBottom: "1px solid var(--border-faint)" }}>
 
         {/* Title row + hall picker */}
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>

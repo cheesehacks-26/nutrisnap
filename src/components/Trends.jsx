@@ -195,7 +195,7 @@ export default function Trends() {
       <div style={{ position: "fixed", top: -80, left: "50%", transform: "translateX(-50%)", width: 500, height: 400, background: "radial-gradient(circle,var(--accent2)08 0%,transparent 65%)", pointerEvents: "none", zIndex: 0 }} aria-hidden="true" />
       <div className="trends-inner" style={{ padding: "52px 22px 20px", position: "relative", zIndex: 1 }}>
         <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
-          {weekData.length >= 2 ? `${weekData[0].date} â€“ ${weekData[weekData.length - 1].date}` : "This week"}
+          {weekData.length >= 2 ? `${weekData[0].date} \u2013 ${weekData[weekData.length - 1].date}` : "This week"}
         </div>
         <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 28, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>Weekly <span style={{ color: "var(--accent2)" }}>Trends</span></h1>
       </div>
@@ -229,7 +229,7 @@ export default function Trends() {
           <div style={{ animation: "fadeSlideUp 0.35s ease" }}>
             <div className="trends-chart-wrap" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 22, padding: "18px 16px 10px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,var(--accent2)40,transparent)" }} aria-hidden="true" />
-              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>Calories · 7 days</div>
+              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>Calories {"\u00B7"} 7 days</div>
               <LineChart activeDay={activeDay} onDayClick={setActiveDay} weekData={weekData} goalsT={goalsT} />
             </div>
             <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, padding: 16, marginBottom: 16, animation: "fadeIn 0.25s ease" }}>
@@ -272,7 +272,7 @@ export default function Trends() {
               <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 22, padding: "18px 16px 10px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg,transparent,${m.color}40,transparent)` }} aria-hidden="true" />
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
-                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase" }}>{m.label} Â· 7 days</div>
+                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase" }}>{m.label} {"\u00B7"} 7 days</div>
                   <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)" }}>goal <span style={{ color: m.color }}>{m.goal}g</span></div>
                 </div>
                 <MacroBarChart metric={activeMetric} weekData={weekData} macroMeta={macroMeta} />
@@ -322,7 +322,7 @@ export default function Trends() {
                 ))}
               </div>
               <div style={{ marginTop: 14, fontSize: 12, color: "var(--text-muted)" }}>
-                {daysLogged}-day logging week Â· <span style={{ color: "var(--accent)" }}>{daysLogged >= 5 ? <>Great consistency! {"\uD83D\uDCA5"}</> : "Keep logging daily for better insights."}</span>
+                {daysLogged}-day logging week {"\u00B7"} <span style={{ color: "var(--accent)" }}>{daysLogged >= 5 ? <>Great consistency! {"\uD83D\uDCA5"}</> : "Keep logging daily for better insights."}</span>
               </div>
             </div>
           </div>

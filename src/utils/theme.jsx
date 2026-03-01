@@ -1,11 +1,11 @@
 import { createContext, useContext, useState, useCallback, useLayoutEffect } from "react";
 
-export const ThemeContext = createContext({ isDark: true, toggle: () => {} });
+export const ThemeContext = createContext({ isDark: false, toggle: () => {} });
 export const useTheme = () => useContext(ThemeContext);
 
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(() => {
-    try { return localStorage.getItem("ns_theme") !== "light"; } catch { return true; }
+    try { return localStorage.getItem("ns_theme") === "dark"; } catch { return false; }
   });
 
   useLayoutEffect(() => {

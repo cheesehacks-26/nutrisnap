@@ -347,9 +347,13 @@ export function RegisterPage({ onSwitch }) {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // ONBOARDING PAGE
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+const cardStyle = { background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 20, padding: 20, marginBottom: 20, position: "relative", overflow: "hidden" };
+const sectionTitle = { fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.12em", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: 16, fontWeight: 600 };
+const labelStyle = { display: "block", fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.1em", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: 6 };
+const inputStyle = { width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-faint)", borderRadius: 12, padding: "12px 16px", fontSize: 14, color: "var(--text-primary)", boxSizing: "border-box" };
+
 export function OnboardingPage() {
   const { token, completeOnboarding } = useAuth();
-  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -402,10 +406,10 @@ export function OnboardingPage() {
   };
 
   const OptionBtn = ({ value, current, onSelect, children }) => (
-    <button onClick={() => onSelect(value)} style={{
-      flex: 1, padding: "12px 8px", borderRadius: 14, cursor: "pointer",
-      background: current === value ? "var(--accent)18" : "var(--bg-input)",
-      border: `2px solid ${current === value ? "var(--accent)" : "var(--border)"}`,
+    <button type="button" onClick={() => onSelect(value)} style={{
+      flex: 1, padding: "12px 8px", borderRadius: 12, cursor: "pointer",
+      background: current === value ? "var(--accent)12" : "var(--bg-input)",
+      border: `2px solid ${current === value ? "var(--accent)" : "var(--border-faint)"}`,
       color: current === value ? "var(--accent)" : "var(--text-muted)",
       fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 13,
       transition: "all 0.2s",
@@ -413,146 +417,126 @@ export function OnboardingPage() {
     }}>{children}</button>
   );
 
-  const TOTAL_STEPS = 4;
-
-  const steps = [
-    // Step 0: Name + Sex
-    <div key={0}>
-      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", marginBottom: 6 }}>
-        What should we call you?
-      </div>
-      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>Step 1 of {TOTAL_STEPS} â€” Basic info</div>
-      <Field label="Display name" value={displayName} onChange={setDisplayName} placeholder="e.g. Badger" />
-      <div style={{ marginBottom: 18 }}>
-        <label style={s.label}>Biological sex</label>
-        <div style={{ display: "flex", gap: 10 }}>
-          <OptionBtn value="male"   current={sex} onSelect={setSex}>Male</OptionBtn>
-          <OptionBtn value="female" current={sex} onSelect={setSex}>Female</OptionBtn>
-        </div>
-      </div>
-      <Field label="Age" type="number" value={age} onChange={setAge} placeholder="e.g. 20" />
-      <button onClick={() => { if (!displayName || !sex || !age) { setError("Fill in all fields"); return; } setError(""); setStep(1); }} style={s.btn}>Next â†’</button>
-    </div>,
-
-    // Step 1: Height + Weight
-    <div key={1}>
-      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", marginBottom: 6 }}>
-        Body measurements
-      </div>
-      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>Step 2 of {TOTAL_STEPS} â€” Used to calculate your calorie needs</div>
-      <div style={{ marginBottom: 18 }}>
-        <label style={s.label}>Height</label>
-        <div style={{ display: "flex", gap: 10 }}>
-          <div style={{ flex: 1, position: "relative" }}>
-            <input type="number" value={heightFt} onChange={e => setHeightFt(e.target.value)} placeholder="5" style={{ ...s.input, paddingRight: 32 }} />
-            <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>ft</span>
-          </div>
-          <div style={{ flex: 1, position: "relative" }}>
-            <input type="number" value={heightIn} onChange={e => setHeightIn(e.target.value)} placeholder="10" style={{ ...s.input, paddingRight: 32 }} />
-            <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>in</span>
-          </div>
-        </div>
-      </div>
-      <div style={{ marginBottom: 18, position: "relative" }}>
-        <label style={s.label}>Weight</label>
-        <input type="number" value={weightLbs} onChange={e => setWeightLbs(e.target.value)} placeholder="155" style={{ ...s.input, paddingRight: 40 }} />
-        <span style={{ position: "absolute", right: 12, bottom: 13, fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>lbs</span>
-      </div>
-      <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => setStep(0)} style={{ ...s.btn, background: "var(--bg-input)", color: "var(--text-muted)", boxShadow: "none", flex: 0.6 }}>â† Back</button>
-        <button onClick={() => { if (!heightFt || !weightLbs) { setError("Fill in all fields"); return; } setError(""); setStep(2); }} style={{ ...s.btn, flex: 1 }}>Next â†’</button>
-      </div>
-    </div>,
-
-    // Step 2: Goal + Activity
-    <div key={2}>
-      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", marginBottom: 6 }}>Your goals</div>
-      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>Step 3 of {TOTAL_STEPS} â€” We'll personalize your nutrition targets</div>
-      <div style={{ marginBottom: 20 }}>
-        <label style={s.label}>Goal</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <OptionBtn value="cut"      current={goal} onSelect={setGoal}>{"\uD83D\uDCA5"} Cut</OptionBtn>
-          <OptionBtn value="maintain" current={goal} onSelect={setGoal}>{"\u2705"} Maintain</OptionBtn>
-          <OptionBtn value="bulk"     current={goal} onSelect={setGoal}>{"\uD83C\uDF4A"} Bulk</OptionBtn>
-        </div>
-      </div>
-      <div style={{ marginBottom: 24 }}>
-        <label style={s.label}>Activity level</label>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {[
-            { v: "sedentary", l: "Sedentary", d: "Little or no exercise" },
-            { v: "light",     l: "Light",     d: "Exercise 1â€“3 days/week" },
-            { v: "moderate",  l: "Moderate",  d: "Exercise 3â€“5 days/week" },
-            { v: "active",    l: "Active",    d: "Exercise 6â€“7 days/week" },
-          ].map(({ v, l, d }) => (
-            <button key={v} onClick={() => setActivityLevel(v)} style={{
-              padding: "12px 16px", borderRadius: 14, cursor: "pointer", textAlign: "left",
-              background: activityLevel === v ? "var(--accent)08" : "var(--bg-input)",
-              border: `2px solid ${activityLevel === v ? "var(--accent)" : "var(--border-faint)"}`,
-              transition: "all 0.2s",
-              boxShadow: activityLevel === v ? "0 0 0 2px var(--accent)20" : "none",
-            }}>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13, color: activityLevel === v ? "var(--accent)" : "var(--text-secondary)" }}>{l}</div>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>{d}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => setStep(1)} style={{ ...s.btn, background: "var(--bg-input)", color: "var(--text-muted)", boxShadow: "none", flex: 0.6 }}>â† Back</button>
-        <button onClick={() => { if (!goal || !activityLevel) { setError("Select a goal and activity level"); return; } setError(""); setStep(3); }} style={{ ...s.btn, flex: 1 }}>Next â†’</button>
-      </div>
-    </div>,
-
-    // Step 3: Dietary Restrictions
-    <div key={3}>
-      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", marginBottom: 6 }}>Dietary needs</div>
-      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 6 }}>Step 4 of {TOTAL_STEPS} â€” Optional, helps filter the menu</div>
-      <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 20 }}>Select all that apply</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28 }}>
-        {DIETARY_OPTIONS.map(({ key, label, icon }) => {
-          const active = dietaryRestrictions.includes(key);
-          return (
-            <button key={key} onClick={() => toggleDiet(key)} style={{
-              padding: "10px 16px", borderRadius: 14, cursor: "pointer",
-              background: active ? "var(--accent)15" : "var(--bg-input)",
-              border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`,
-              color: active ? "var(--accent)" : "var(--text-secondary)",
-              fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13,
-              display: "flex", alignItems: "center", gap: 6,
-              transition: "all 0.2s",
-              boxShadow: active ? "0 0 0 2px var(--accent)25" : "none",
-            }}>
-              <span>{icon}</span> {label}
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={() => setStep(2)} style={{ ...s.btn, background: "var(--bg-input)", color: "var(--text-muted)", boxShadow: "none", flex: 0.6 }}>â† Back</button>
-        <button onClick={handleSubmit} disabled={loading} style={{ ...s.btn, flex: 1, ...(loading ? s.btnDisabled : {}) }}>
-          {loading ? "Setting upâ€¦" : "Let's go \uD83C\uDF74"}
-        </button>
-      </div>
-    </div>,
-  ];
-
   return (
-    <div style={s.page}>
+    <div style={{ ...s.page, justifyContent: "flex-start", paddingTop: 48, paddingBottom: 48 }}>
       <div style={s.glow} />
-      <div style={{ ...s.card, maxWidth: 400 }}>
-        <div style={s.topLine} />
-        <div style={{ display: "flex", gap: 6, marginBottom: 28 }}>
-          {[0, 1, 2, 3].map(i => (
-            <div key={i} style={{ flex: 1, height: 3, borderRadius: 99, background: i <= step ? "var(--accent)" : "var(--border-faint)", transition: "background 0.3s" }} />
-          ))}
+      <div style={{ width: "100%", maxWidth: 520, margin: "0 auto", padding: "0 20px", position: "relative", zIndex: 1 }}>
+        <div style={{ marginBottom: 28 }}>
+          <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 26, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>Complete your <span style={{ color: "var(--accent)" }}>profile</span></h1>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>We'll use this to personalize your nutrition targets.</p>
         </div>
-        {error && <div style={s.error} role="alert">{error}</div>}
-        {steps[step]}
+        {error && <div style={{ ...s.error, marginBottom: 16 }} role="alert">{error}</div>}
+
+        <div style={cardStyle}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--accent)50,transparent)", opacity: 0.6 }} />
+          <div style={sectionTitle}>Basic info</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Display name</label>
+              <input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. Badger" style={inputStyle} aria-label="Display name" />
+            </div>
+            <div>
+              <label style={labelStyle}>Biological sex</label>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <OptionBtn value="male" current={sex} onSelect={setSex}>Male</OptionBtn>
+                <OptionBtn value="female" current={sex} onSelect={setSex}>Female</OptionBtn>
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Age</label>
+              <input type="number" value={age} onChange={e => setAge(e.target.value)} placeholder="e.g. 20" style={inputStyle} aria-label="Age" />
+            </div>
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--accent2)50,transparent)", opacity: 0.6 }} />
+          <div style={sectionTitle}>Body measurements</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Height</label>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <div style={{ flex: 1, position: "relative" }}>
+                  <input type="number" value={heightFt} onChange={e => setHeightFt(e.target.value)} placeholder="5" style={{ ...inputStyle, paddingRight: 36 }} aria-label="Height feet" />
+                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>ft</span>
+                </div>
+                <div style={{ flex: 1, position: "relative" }}>
+                  <input type="number" value={heightIn} onChange={e => setHeightIn(e.target.value)} placeholder="10" style={{ ...inputStyle, paddingRight: 36 }} aria-label="Height inches" />
+                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>in</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ position: "relative" }}>
+              <label style={labelStyle}>Weight</label>
+              <input type="number" value={weightLbs} onChange={e => setWeightLbs(e.target.value)} placeholder="155" style={{ ...inputStyle, paddingRight: 40, marginTop: 6 }} aria-label="Weight in pounds" />
+              <span style={{ position: "absolute", right: 12, bottom: 12, fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>lbs</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--warning)50,transparent)", opacity: 0.6 }} />
+          <div style={sectionTitle}>Goals</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Goal</label>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <OptionBtn value="cut" current={goal} onSelect={setGoal}>Cut</OptionBtn>
+                <OptionBtn value="maintain" current={goal} onSelect={setGoal}>Maintain</OptionBtn>
+                <OptionBtn value="bulk" current={goal} onSelect={setGoal}>Bulk</OptionBtn>
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Activity level</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
+                {[{ v: "sedentary", l: "Sedentary", d: "Little or no exercise" }, { v: "light", l: "Light", d: "Exercise 1\u20133 days/week" }, { v: "moderate", l: "Moderate", d: "Exercise 3\u20135 days/week" }, { v: "active", l: "Active", d: "Exercise 6\u20137 days/week" }].map(({ v, l, d }) => (
+                  <button type="button" key={v} onClick={() => setActivityLevel(v)} style={{ padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left", background: activityLevel === v ? "var(--accent)08" : "var(--bg-input)", border: `2px solid ${activityLevel === v ? "var(--accent)" : "var(--border-faint)"}`, transition: "all 0.2s", boxShadow: activityLevel === v ? "0 0 0 2px var(--accent)20" : "none" }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: activityLevel === v ? "var(--accent)" : "var(--text-secondary)" }}>{l}</span>
+                    <span style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2, display: "block" }}>{d}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={cardStyle}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,#4ade8050,transparent)", opacity: 0.6 }} />
+          <div style={sectionTitle}>Dietary preferences (optional)</div>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12, lineHeight: 1.5 }}>Lifestyle or diet type. Used to filter menu recommendations.</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }} role="group" aria-label="Dietary preferences">
+            {DIETARY_PREFS.map(({ key, label, icon }) => {
+              const active = dietaryRestrictions.includes(key);
+              return (
+                <button type="button" key={key} onClick={() => toggleDiet(key)} style={{ padding: "8px 12px", borderRadius: 99, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: active ? 600 : 400, background: active ? "var(--accent)12" : "var(--bg-input)", border: `2px solid ${active ? "var(--accent)" : "var(--border-faint)"}`, color: active ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s" }}>
+                  {active && <span style={{ fontSize: 10 }}>{"\u2713"}</span>}<span>{icon}</span>{label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ ...sectionTitle, marginTop: 24, marginBottom: 4 }}>Allergens (optional)</div>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12, lineHeight: 1.5 }}>Ingredients to avoid for safety or preference.</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }} role="group" aria-label="Allergens to avoid">
+            {ALLERGEN_OPTIONS.map(({ key, label, icon }) => {
+              const active = dietaryRestrictions.includes(key);
+              return (
+                <button type="button" key={key} onClick={() => toggleDiet(key)} style={{ padding: "8px 12px", borderRadius: 99, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: active ? 600 : 400, background: active ? "var(--danger-bg)" : "var(--bg-input)", border: `2px solid ${active ? "var(--danger)" : "var(--border-faint)"}`, color: active ? "var(--danger)" : "var(--text-secondary)", transition: "all 0.2s" }}>
+                  {active && <span style={{ fontSize: 10 }}>{"\u2713"}</span>}<span>{icon}</span>{label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button type="button" onClick={handleSubmit} disabled={loading} style={{ width: "100%", padding: 16, borderRadius: 18, border: "none", cursor: loading ? "not-allowed" : "pointer", background: loading ? "var(--bg-input)" : "linear-gradient(135deg,var(--accent),var(--accent2))", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: loading ? "var(--text-muted)" : "var(--accent-contrast)", boxShadow: loading ? "none" : "0 8px 32px var(--accent)40", transition: "all 0.2s" }}>
+          {loading ? "Setting up\u2026" : "Let's go \uD83C\uDF74"}
+        </button>
       </div>
     </div>
   );
 }
+
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // AUTH GATE

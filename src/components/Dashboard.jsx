@@ -90,7 +90,7 @@ function MealCard({ meal, onDelete, deletingLogId }) {
             <div key={d.food_id || d.log_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--border-faint)" }}>
               <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                 <div style={{ fontSize: 13, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</div>
-                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", marginTop: 2 }}>{d.station} · ×{d.servings}</div>
+                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", marginTop: 2 }}>{d.station} {"\u00B7"} {"\u00D7"}{d.servings}</div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                 <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, color: "var(--text-muted)" }}>{d.nutrition.calories} kcal</div>
@@ -221,7 +221,7 @@ export default function Dashboard({ onNav }) {
         {/* Nutrition card */}
         <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 24, padding: 22, marginBottom: 16, position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,var(--accent)40,transparent)" }} aria-hidden="true" />
-          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 18 }}>Today · {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 18 }}>Today {"\u00B7"} {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
           {loading ? (
             <div style={{ height: 176, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontFamily: "'Space Mono',monospace", fontSize: 11 }} role="status" aria-live="polite">Loading…</div>
           ) : (
@@ -287,7 +287,7 @@ export default function Dashboard({ onNav }) {
         <section style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
             <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 17, color: "var(--text-primary)" }}>Recommended <span style={{ color: "var(--accent)" }}>{recsMeal || "today"}</span>{MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" ? " (next)" : ""}</h2>
-            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", textTransform: "uppercase" }}>{recsMeal} · All Halls</span>
+            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", textTransform: "uppercase" }}>{recsMeal} {"\u00B7"} All Halls</span>
           </div>
           {recsRemaining && (
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>

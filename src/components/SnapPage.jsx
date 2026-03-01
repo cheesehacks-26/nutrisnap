@@ -1,7 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import { apiGet, apiPost, API_BASE } from "../utils/api.js";
-import { MEAL_FOR_HOUR, TAG_COLOR, HALL_NAMES } from "../utils/constants.js";
+import { MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, MEAL_ICONS, TAG_COLOR, HALL_NAMES } from "../utils/constants.js";
+
+const MEAL_OPTIONS = ["breakfast", "lunch", "dinner"];
 
 // â”€â”€ Corner Bracket (camera viewfinder) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function CornerBracket({ style }) {
@@ -55,7 +57,7 @@ function MatchCard({ item, score, onLog, confirmed, logging }) {
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-input)", borderRadius: 12, padding: "4px 12px", border: "1px solid var(--border)" }}>
           <button onClick={() => setServings(s => Math.max(0.5, s - 0.5))} aria-label="Decrease servings" style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 2px" }}>{"\u2212"}</button>
-          <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--text-secondary)", minWidth: 28, textAlign: "center" }} aria-live="polite">{servings}\u00D7</span>
+          <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--text-secondary)", minWidth: 28, textAlign: "center" }} aria-live="polite">{servings}{"\u00D7"}</span>
           <button onClick={() => setServings(s => Math.min(4, s + 0.5))} aria-label="Increase servings" style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 2px" }}>+</button>
         </div>
         <button onClick={() => onLog({ ...item, servings })} disabled={logging} aria-pressed={confirmed} style={{ flex: 1, padding: "10px 16px", borderRadius: 12, border: confirmed ? "2px solid var(--accent)" : "1px solid var(--border)", cursor: logging ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 13, background: confirmed ? "linear-gradient(135deg,var(--accent),var(--accent2))" : "var(--bg-input)", color: confirmed ? "var(--accent-contrast)" : "var(--text-secondary)", transition: "all 0.25s ease", boxShadow: confirmed ? "0 0 0 2px var(--accent)25" : "none" }}>
@@ -70,8 +72,8 @@ function MatchCard({ item, score, onLog, confirmed, logging }) {
 export default function SnapPage({ onNav }) {
   const { token } = useAuth();
   const [selectedHall, setSelectedHall]   = useState("gordon-avenue-market");
+  const [selectedMeal, setSelectedMeal]   = useState(() => MEAL_FOR_RECOMMEND(new Date().getHours()));
   const [diningHalls, setDiningHalls]     = useState([]);
-  const [showHallPicker, setShowHallPicker] = useState(false);
   const [phase, setPhase]                 = useState("idle");
   const [detections, setDetections]       = useState([]);
   const [matches, setMatches]             = useState([]);
@@ -94,10 +96,9 @@ export default function SnapPage({ onNav }) {
       .catch(e => console.error("Dining halls load error:", e));
   }, []);
 
-  // Load live menu for selected hall
+  // Load live menu for selected hall + meal
   useEffect(() => {
-    const meal = MEAL_FOR_HOUR(new Date().getHours());
-    fetch(`${API_BASE}/api/menu?hall=${selectedHall}&meal=${meal}`)
+    fetch(`${API_BASE}/api/menu?hall=${selectedHall}&meal=${selectedMeal}`)
       .then(r => r.json())
       .then(d => {
         if (d.items?.length > 0) {
@@ -109,7 +110,7 @@ export default function SnapPage({ onNav }) {
         }
       })
       .catch(e => console.error("Live menu load error:", e));
-  }, [selectedHall]);
+  }, [selectedHall, selectedMeal]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
@@ -158,8 +159,7 @@ export default function SnapPage({ onNav }) {
           base64Image = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
         }
       }
-      const meal = MEAL_FOR_HOUR(new Date().getHours());
-      const data = await apiPost("/api/snap", token, { image: base64Image, hall: selectedHall, meal });
+      const data = await apiPost("/api/snap", token, { image: base64Image, hall: selectedHall, meal: selectedMeal });
       const results = (data.matched || []).map(item => ({
         detection_label: item.name,
         confidence: 0.9,
@@ -172,7 +172,7 @@ export default function SnapPage({ onNav }) {
       console.error("Snap analysis error:", e);
       setPhase("manual");
     }
-  }, [stopCamera, token, selectedHall]);
+  }, [stopCamera, token, selectedHall, selectedMeal]);
 
   const handleLogSingle = useCallback(async (key, item) => {
     if (!item || loggingIds.has(key)) return;
@@ -195,7 +195,7 @@ export default function SnapPage({ onNav }) {
         sugar_g:      Math.round((item.nutrition?.g_sugar   || 0) * servings),
         sodium_mg:    Math.round(sodiumMg * servings),
         hall:         selectedHall,
-        meal_type:    MEAL_FOR_HOUR(new Date().getHours()),
+        meal_type:    selectedMeal,
       });
       setConfirmed(p => ({ ...p, [key]: item }));
       setLoggedCalories(calories);
@@ -207,11 +207,11 @@ export default function SnapPage({ onNav }) {
     } finally {
       setLoggingIds(p => { const n = new Set(p); n.delete(key); return n; });
     }
-  }, [loggingIds, token, selectedHall]);
+  }, [loggingIds, token, selectedHall, selectedMeal]);
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  const currentMealLabel = MEAL_FOR_HOUR(new Date().getHours());
+  const currentMealLabel = selectedMeal.charAt(0).toUpperCase() + selectedMeal.slice(1);
   const hallDisplayName = diningHalls.find(h => h.id === selectedHall)?.shortName
     || HALL_NAMES[selectedHall]
     || selectedHall;
@@ -226,23 +226,12 @@ export default function SnapPage({ onNav }) {
     <main style={{ paddingBottom: 100, animation: "pageIn 0.35s ease" }}>
       <div style={{ position: "fixed", top: -100, left: "50%", transform: "translateX(-50%)", width: 600, height: 600, background: "radial-gradient(circle, var(--glow) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} aria-hidden="true" />
 
-      {/* Header */}
-      <div style={{ padding: "52px 24px 20px", position: "relative", zIndex: 1 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>
-              Nutri<span style={{ color: "var(--accent)" }}>Snap</span>
-            </h1>
-            {/* Dynamic: shows selected hall + current meal */}
-            <button
-              onClick={() => setShowHallPicker(p => !p)}
-              aria-label="Change dining hall"
-              aria-expanded={showHallPicker}
-              style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--accent)", background: "var(--accent)08", border: "1px solid var(--accent)20", borderRadius: 99, padding: "3px 10px", cursor: "pointer", marginTop: 4, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              {hallDisplayName} \u00B7 {currentMealLabel} \u00B7 Today \u25BC
-            </button>
-          </div>
+      {/* Header — meal & location dropdowns + manual on one page */}
+      <div style={{ padding: "52px 24px 16px", position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>
+            Nutri<span style={{ color: "var(--accent)" }}>Snap</span>
+          </h1>
           <button
             onClick={() => setPhase(p => p === "manual" ? (matches.length ? "results" : "idle") : "manual")}
             aria-label={phase === "manual" ? "Back" : "Browse menu manually"}
@@ -251,17 +240,38 @@ export default function SnapPage({ onNav }) {
             {phase === "manual" ? "\u2190 BACK" : "MANUAL"}
           </button>
         </div>
-
-        {/* Hall picker dropdown */}
-        {showHallPicker && (
-          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 8, marginTop: 10, zIndex: 50, position: "relative" }} role="listbox" aria-label="Select dining hall">
-            {diningHalls.map(h => (
-              <button key={h.id} role="option" aria-selected={selectedHall === h.id} onClick={() => { setSelectedHall(h.id); setShowHallPicker(false); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", borderRadius: 12, border: "none", cursor: "pointer", background: selectedHall === h.id ? "var(--accent)10" : "transparent", fontSize: 13, color: selectedHall === h.id ? "var(--accent)" : "var(--text-secondary)", fontWeight: selectedHall === h.id ? 700 : 400, transition: "all 0.15s" }}>
-                {h.name}
-              </button>
-            ))}
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Meal</label>
+            <select
+              value={selectedMeal}
+              onChange={e => setSelectedMeal(e.target.value)}
+              aria-label="Select meal"
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-input)", fontSize: 13, color: "var(--text-primary)", cursor: "pointer", appearance: "auto" }}
+            >
+              {MEAL_OPTIONS.map(m => (
+                <option key={m} value={m}>{MEAL_ICONS[m] || ""} {m.charAt(0).toUpperCase() + m.slice(1)}</option>
+              ))}
+            </select>
           </div>
-        )}
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>Location</label>
+            <select
+              value={selectedHall}
+              onChange={e => setSelectedHall(e.target.value)}
+              aria-label="Select dining hall"
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-input)", fontSize: 13, color: "var(--text-primary)", cursor: "pointer", appearance: "auto" }}
+            >
+              {diningHalls.length === 0 ? (
+                <option>Loading…</option>
+              ) : (
+                diningHalls.map(h => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                ))
+              )}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* IDLE phase */}
@@ -314,7 +324,7 @@ export default function SnapPage({ onNav }) {
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40 }}>{"\uD83D\uDCDA"}</div>
           </div>
           <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", marginBottom: 8 }}>Identifying dishes...</div>
-          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)", marginBottom: 32, letterSpacing: "0.08em" }}>MATCHING MENU Â· COMPUTING MACROS</div>
+          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)", marginBottom: 32, letterSpacing: "0.08em" }}>MATCHING MENU {"\u00B7"} COMPUTING MACROS</div>
           {[
             { label: "Analyzing image",         delay: "0s",    dur: "0.8s" },
             { label: "Matching Nutrislice menu", delay: "0.7s",  dur: "1.0s" },
@@ -389,7 +399,7 @@ export default function SnapPage({ onNav }) {
                 <div key={item.food_id} style={{ background: confirmed[`manual_${item.food_id}`] ? "var(--accent)06" : "var(--bg-card)", border: `2px solid ${confirmed[`manual_${item.food_id}`] ? "var(--accent)" : "var(--border-faint)"}`, borderRadius: 16, padding: "14px 16px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all 0.2s", width: "100%" }}>
                   <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
-                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>{item.station} Â· {item.serving_size}</div>
+                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>{item.station} {"\u00B7"} {item.serving_size}</div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: "var(--cal-color)" }}>{item.nutrition.calories}</div>
