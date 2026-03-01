@@ -58,7 +58,7 @@ export default function ProfilePage({ onNav }) {
       const totalHeight = Math.max(0, parseInt(heightFt || 0, 10) * 12 + parseInt(heightIn || 0, 10));
       const ageVal = Math.max(1, Math.min(120, parseInt(age, 10) || 0));
       const weightVal = Math.max(0, parseFloat(weightLbs) || 0);
-      await fetch(`${API_BASE}/api/profile`, {
+      const profileRes = await fetch(`${API_BASE}/api/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -70,12 +70,20 @@ export default function ProfilePage({ onNav }) {
           dietary_restrictions: dietaryRestrictions,
         }),
       });
-      await fetch(`${API_BASE}/api/targets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      });
-      const tData = await apiGet("/api/targets", token).catch(() => ({}));
-      setTargets(tData.targets || tData || {});
+      const profileJson = await profileRes.json().catch(() => ({}));
+      if (!profileRes.ok) {
+        setError(profileJson.error || "Failed to save profile.");
+        return;
+      }
+      if (profileJson.targets_error) {
+        setError(profileJson.targets_error);
+      }
+      if (profileJson.targets) {
+        setTargets(profileJson.targets);
+      } else {
+        const tData = await apiGet("/api/targets", token).catch(() => ({}));
+        setTargets(tData.targets != null ? tData.targets : tData || null);
+      }
       setSuccess("Profile updated!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (e) {
@@ -143,11 +151,8 @@ export default function ProfilePage({ onNav }) {
       <div style={{ position: "fixed", top: -80, left: "50%", transform: "translateX(-50%)", width: 500, height: 500, background: "radial-gradient(circle, var(--glow) 0%, transparent 65%)", pointerEvents: "none", zIndex: 0 }} aria-hidden="true" />
 
       {/* Header */}
-      <div className="profile-header" style={{ padding: "52px 20px 24px", position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: "linear-gradient(135deg, var(--accent)25, var(--accent2)20)", border: "1px solid var(--accent)30", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 22, color: "var(--accent)", flexShrink: 0 }}>
-          {(displayName || "?").charAt(0).toUpperCase()}
-        </div>
-        <div style={{ minWidth: 0, flex: 1 }}>
+      <div className="profile-header" style={{ padding: "52px 20px 24px", position: "relative", zIndex: 1 }}>
+        <div style={{ minWidth: 0 }}>
           <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 26, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1.2 }}>Your <span style={{ color: "var(--accent)" }}>Profile</span></h1>
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, lineHeight: 1.4 }}>Update your info for better recommendations and daily targets.</p>
         </div>

@@ -57,6 +57,17 @@ export function AuthProvider({ children }) {
       .finally(() => setIsValidating(false));
   }, [token]);
 
+  // When API returns 401 (invalid/expired token), clear session so user is sent to login
+  useEffect(() => {
+    const onSessionExpired = () => {
+      localStorage.removeItem(TOKEN_KEY);
+      setToken(null);
+      setUser(null);
+    };
+    window.addEventListener("auth:sessionExpired", onSessionExpired);
+    return () => window.removeEventListener("auth:sessionExpired", onSessionExpired);
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       token, user, setUser, login, logout,
