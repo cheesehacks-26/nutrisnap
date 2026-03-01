@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, createContext, useCallback } from "react";
+﻿import { useState, useEffect, useContext, createContext, useCallback } from "react";
 import { DIETARY_OPTIONS, DIETARY_PREFS, ALLERGEN_OPTIONS } from "./utils/constants.js";
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -271,8 +271,7 @@ export function LoginPage({ onSwitch }) {
       <div style={s.card}>
         <div style={s.topLine} />
         <div style={s.logo}>Nutri<span style={{ color: "var(--accent)" }}>Snap</span></div>
-        <div style={s.subtitle}>Sign in to track your dining hall meals \uD83C\uDF74</div>
-        {error && <div style={s.error} role="alert">{error}</div>}
+        <div style={s.subtitle}>Sign in \u2192"alert">{error}</div>}
         <Field label="Email" type="email" value={email} onChange={setEmail}
           placeholder="you@wisc.edu" autoComplete="email" />
         <Field label="Password" type="password" value={password} onChange={setPassword}
@@ -284,7 +283,7 @@ export function LoginPage({ onSwitch }) {
           style={{ ...s.btn, ...(loading ? s.btnDisabled : {}) }}
           aria-label="Sign in"
         >
-          {loading ? "Signing in..." : "Sign in â†’"}
+          {loading ? "Signing in..." : "Sign in \u2192"}
         </button>
         <div style={s.switchText}>
           No account?{" "}
@@ -344,7 +343,7 @@ export function RegisterPage({ onSwitch }) {
           style={{ ...s.btn, ...(loading ? s.btnDisabled : {}) }}
           aria-label="Create account"
         >
-          {loading ? "Creating account..." : "Create account â†’"}
+          {loading ? "Creating account..." : "Create account \u2192"}
         </button>
         <div style={s.switchText}>
           Already have an account?{" "}
