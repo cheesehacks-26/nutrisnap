@@ -123,6 +123,80 @@ function MealCard({ meal, onDelete, deletingLogId }) {
   );
 }
 
+// ── Daily Insights ────────────────────────────────────────────────
+function DailyInsights({ totals, calGoal, protGoal, carbGoal, fatGoal, mealsLogged, onNav }) {
+  const calPct = calGoal > 0 ? totals.calories / calGoal : 0;
+  const protPct = protGoal > 0 ? totals.g_protein / protGoal : 0;
+  const carbPct = carbGoal > 0 ? totals.g_carbs / carbGoal : 0;
+  const fatPct = fatGoal > 0 ? totals.g_fat / fatGoal : 0;
+
+  const nudges = [];
+
+  if (mealsLogged === 0) {
+    nudges.push({ text: "No meals logged yet. Start by snapping or browsing the menu.", color: "var(--text-muted)", icon: "\u{1F331}" });
+  } else {
+    if (protPct < 0.4 && calPct > 0.3) nudges.push({ text: "Protein is low today. Try adding grilled chicken or eggs.", color: "var(--protein)", icon: "\u{1F4AA}" });
+    else if (protPct >= 0.8 && protPct <= 1.1) nudges.push({ text: "Protein is on track. Nice work!", color: "var(--protein)", icon: "\u2705" });
+
+    if (fatPct > 1.15) nudges.push({ text: "Fat is running high. Consider lighter sides for your next meal.", color: "var(--fat-color)", icon: "\u{1F4A1}" });
+    if (carbPct > 1.15) nudges.push({ text: "Carbs are over target. Maybe swap in veggies or salad.", color: "var(--carbs-color)", icon: "\u{1F96C}" });
+
+    if (calPct >= 0.85 && calPct <= 1.1) nudges.push({ text: "Great calorie balance today!", color: "var(--accent)", icon: "\u{1F389}" });
+    else if (calPct > 1.15) nudges.push({ text: `You're ${Math.round((calPct - 1) * 100)}% over your calorie goal. That's okay, tomorrow's a new day.`, color: "var(--danger)", icon: "\u{1F4AC}" });
+    else if (calPct < 0.4 && mealsLogged >= 1) nudges.push({ text: "You've still got room. Don't skip meals!", color: "var(--warning)", icon: "\u{2615}" });
+  }
+
+  const totalMacros = totals.g_protein + totals.g_carbs + totals.g_fat;
+  const protShare = totalMacros > 0 ? Math.round((totals.g_protein / totalMacros) * 100) : 0;
+  const carbShare = totalMacros > 0 ? Math.round((totals.g_carbs / totalMacros) * 100) : 0;
+  const fatShare = totalMacros > 0 ? 100 - protShare - carbShare : 0;
+
+  if (nudges.length === 0) nudges.push({ text: "Keep it up, you're doing great today!", color: "var(--accent)", icon: "\u{1F31F}" });
+
+  return (
+    <section style={{ marginBottom: 16, animation: "fadeSlideUp 0.4s ease" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>Daily Summary</h2>
+        <button onClick={() => onNav("analysis")} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--accent)", letterSpacing: "0.05em" }}>VIEW ANALYSIS {"\u2192"}</button>
+      </div>
+
+      {/* Macro balance bar */}
+      {totalMacros > 0 && (
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 16, padding: "14px 16px", marginBottom: 10 }}>
+          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Macro split</div>
+          <div style={{ display: "flex", height: 10, borderRadius: 99, overflow: "hidden", gap: 2 }}>
+            <div style={{ width: `${protShare}%`, background: "var(--protein)", borderRadius: "99px 0 0 99px", transition: "width 0.8s ease", minWidth: protShare > 0 ? 4 : 0 }} title={`Protein ${protShare}%`} />
+            <div style={{ width: `${carbShare}%`, background: "var(--carbs-color)", transition: "width 0.8s ease", minWidth: carbShare > 0 ? 4 : 0 }} title={`Carbs ${carbShare}%`} />
+            <div style={{ width: `${fatShare}%`, background: "var(--fat-color)", borderRadius: "0 99px 99px 0", transition: "width 0.8s ease", minWidth: fatShare > 0 ? 4 : 0 }} title={`Fat ${fatShare}%`} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+            {[
+              { label: "Protein", pct: protShare, c: "var(--protein)" },
+              { label: "Carbs", pct: carbShare, c: "var(--carbs-color)" },
+              { label: "Fat", pct: fatShare, c: "var(--fat-color)" },
+            ].map(m => (
+              <div key={m.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: m.c }} />
+                <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)" }}>{m.label} <span style={{ color: m.c, fontWeight: 700 }}>{m.pct}%</span></span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Nudges */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {nudges.map((n, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, background: `${n.color}08`, border: `1px solid ${n.color}18`, borderRadius: 14, padding: "10px 14px", animation: `fadeSlideUp 0.35s ${i * 0.06}s ease both` }}>
+            <span style={{ fontSize: 16, flexShrink: 0, lineHeight: 1.3 }}>{n.icon}</span>
+            <span style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>{n.text}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ── Dashboard Page ─────────────────────────────────────────────────
 export default function Dashboard({ onNav }) {
   const { user, token } = useAuth();
@@ -278,13 +352,16 @@ export default function Dashboard({ onNav }) {
           )}
         </div>
 
+        {/* Daily insights & nudges */}
+        {!loading && <DailyInsights totals={totals} calGoal={calGoal} protGoal={protGoal} carbGoal={carbGoal} fatGoal={fatGoal} mealsLogged={todayLogs.length} onNav={onNav} />}
+
         {/* CTA button */}
         <button onClick={() => onNav("snap")} aria-label="Snap your meal" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))", borderRadius: 20, padding: "16px 20px", marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 8px 32px var(--accent)30", width: "100%", border: "none" }}>
           <div>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 17, color: "var(--accent-contrast)" }}>📸 Snap your meal</div>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 17, color: "var(--accent-contrast)" }}>Snap your meal</div>
             <div style={{ fontSize: 12, color: "var(--accent-contrast)", marginTop: 2, opacity: 0.7 }}>Auto-detect &amp; log in seconds</div>
           </div>
-          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 22, color: "var(--accent-contrast)", animation: "float 2s ease-in-out infinite" }} aria-hidden="true">→</div>
+          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 22, color: "var(--accent-contrast)", animation: "float 2s ease-in-out infinite" }} aria-hidden="true">{"\u2192"}</div>
         </button>
 
         {/* Today's meals */}

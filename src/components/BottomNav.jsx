@@ -3,7 +3,7 @@ const NAV_ITEMS = [
   { key: "snap",    icon: "📸", label: "Snap"    },
   { key: "menu",    icon: "📋", label: "Menu"    },
   { key: "log",     icon: "📝", label: "My Log"  },
-  { key: "trends",  icon: "📈", label: "Trends"  },
+  { key: "analysis", icon: "📈", label: "Analysis" },
   { key: "profile", icon: "👤", label: "Profile" },
 ];
 

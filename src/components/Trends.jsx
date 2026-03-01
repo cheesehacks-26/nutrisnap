@@ -145,7 +145,7 @@ export default function Trends() {
           setActiveDay(Math.max(0, rows.length - 1));
         }
       })
-      .catch(e => { console.error("Trends load error:", e); setError("Failed to load trends."); })
+      .catch(e => { console.error("Analysis load error:", e); setError("Failed to load analysis."); })
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -155,22 +155,124 @@ export default function Trends() {
     { key: "g_fat",     label: "Fat",     color: "var(--fat-color)",   goal: goalsT.g_fat,     max: Math.max(goalsT.g_fat     * 1.2, 100) },
   ];
 
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const N = ({ v, c }) => <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 700, color: c }}>{v}</span>;
+
+  const writtenSummary = useMemo(() => {
+    const active = weekData.filter(d => d.calories > 0);
+    if (!active.length) return null;
+    const logged = active.length;
+    const avgCal = Math.round(active.reduce((s, d) => s + d.calories, 0) / logged);
+    const avgP = Math.round(active.reduce((s, d) => s + d.g_protein, 0) / logged);
+    const avgC = Math.round(active.reduce((s, d) => s + d.g_carbs, 0) / logged);
+    const avgF = Math.round(active.reduce((s, d) => s + d.g_fat, 0) / logged);
+    const calDiff = avgCal - goalsT.calories;
+    const calPct = Math.round(Math.abs(calDiff) / goalsT.calories * 100);
+    const protPct = goalsT.g_protein > 0 ? Math.round(avgP / goalsT.g_protein * 100) : 0;
+
+    const lines = [];
+
+    const openers = [
+      "Here's a look at how your week shaped up.",
+      "Let's break down your week together.",
+      "Time for your weekly check-in!",
+      "Here's your personalized weekly recap.",
+      "Another week down. Let's see how you did!",
+    ];
+    lines.push(<>{pick(openers)}</>);
+
+    if (logged <= 2) {
+      lines.push(<>You logged <N v={logged} c="var(--accent)" /> day{logged > 1 ? "s" : ""} this week. More consistent logging will help us give a fuller picture.</>);
+    } else {
+      lines.push(<>Over <N v={`${logged} days`} c="var(--accent)" /> this week, you averaged <N v={`${avgCal} kcal`} c="var(--cal-color)" /> per day.</>);
+    }
+
+    if (calPct <= 10) {
+      const onTarget = [
+        "That's right on target. Consistency like this is what builds real progress.",
+        "Spot on! You're nailing your calorie goal.",
+        "Impressive control. You're within striking distance of your goal every day.",
+      ];
+      lines.push(<>{pick(onTarget)} Within <N v={`${calPct}%`} c="var(--accent)" /> of your <N v={`${goalsT.calories} kcal`} c="var(--cal-color)" /> goal.</>);
+    } else if (calDiff > 0) {
+      const overPhrases = [
+        "No stress, small tweaks can bring that back in line.",
+        "Totally manageable. A lighter side or skipping sugary drinks can close that gap.",
+        "Nothing to worry about. Awareness is the first step.",
+      ];
+      lines.push(<>That's about <N v={`+${calDiff} kcal`} c="var(--danger)" /> above your <N v={`${goalsT.calories} kcal`} c="var(--cal-color)" /> goal on average. {pick(overPhrases)}</>);
+    } else {
+      const underPhrases = [
+        "Make sure you're fueling up enough to keep your energy high.",
+        "Your body needs fuel! Try not to skip meals.",
+        "You've got room to eat more and still stay on track.",
+      ];
+      lines.push(<>That's about <N v={`${Math.abs(calDiff)} kcal`} c="var(--warning)" /> under your <N v={`${goalsT.calories} kcal`} c="var(--cal-color)" /> goal. {pick(underPhrases)}</>);
+    }
+
+    if (protPct >= 90) {
+      const protGood = [
+        "Nice work keeping that up!",
+        "Strong protein game this week.",
+        "That's the kind of consistency that builds results.",
+      ];
+      lines.push(<>Protein was solid at <N v={`${avgP}g/day`} c="var(--protein)" /> (<N v={`${protPct}%`} c="var(--protein)" /> of target). {pick(protGood)}</>);
+    } else if (protPct >= 60) {
+      lines.push(<>Protein averaged <N v={`${avgP}g/day`} c="var(--protein)" />, which is <N v={`${protPct}%`} c="var(--protein)" /> of your <N v={`${goalsT.g_protein}g`} c="var(--protein)" /> target. Try adding grilled chicken, eggs, or Greek yogurt to close the gap.</>);
+    } else {
+      lines.push(<>Protein was low at <N v={`${avgP}g/day`} c="var(--protein)" /> (<N v={`${protPct}%`} c="var(--protein)" /> of target). Even small additions like a hard-boiled egg or protein shake can make a real difference.</>);
+    }
+
+    const total = avgP + avgC + avgF;
+    if (total > 0) {
+      const pPct = Math.round(avgP / total * 100);
+      const cPct = Math.round(avgC / total * 100);
+      const fPct = 100 - pPct - cPct;
+      lines.push(<>Your macro split averaged <N v={`${pPct}%`} c="var(--protein)" /> protein, <N v={`${cPct}%`} c="var(--carbs-color)" /> carbs, <N v={`${fPct}%`} c="var(--fat-color)" /> fat.</>);
+      if (fPct > 40) lines.push(<>Fat made up a large share. Check for hidden fats in dressings, fried foods, or sauces.</>);
+      else if (cPct > 55) lines.push(<>Carbs were on the higher side. Balancing with more protein and veggies could help.</>);
+    }
+
+    const closers = [
+      "Keep showing up and the results will follow.",
+      "Every meal logged is a step forward.",
+      "Progress isn't about perfection. It's about consistency.",
+      "You're building great habits. Keep going!",
+      "Small wins add up. You've got this.",
+    ];
+    lines.push(<span style={{ color: "var(--accent)", fontWeight: 600 }}>{pick(closers)}</span>);
+
+    return lines;
+  }, [weekData, goalsT]);
+
   const insights = useMemo(() => {
     if (!weekData.length) return [];
     const ins = [];
-    const lowProt = weekData.filter(d => d.g_protein < goalsT.g_protein * 0.8).length;
-    if (lowProt >= 3) ins.push({ icon: "\uD83C\uDF4A", title: `Protein low ${lowProt} days`, body: "You're consistently under your protein goal. Try adding Grilled Chicken or Eggs.", color: "var(--protein)" });
-    const onGoal = weekData.filter(d => d.calories > 0 && Math.abs(d.calories - goalsT.calories) / goalsT.calories < 0.1).length;
-    if (onGoal >= 3) ins.push({ icon: "\uD83D\uDCA5", title: "Calorie streak", body: `${onGoal} out of 7 days within 10% of your goal. Keep it up!`, color: "var(--accent)" });
-    const highCarb = weekData.filter(d => d.g_carbs > goalsT.g_carbs * 1.1).length;
-    if (highCarb >= 2) ins.push({ icon: "\uD83C\uDF5F", title: "High carb days", body: `You went over your carb goal ${highCarb} days.`, color: "var(--warning)" });
-    if (!ins.length) ins.push({ icon: "\u2705", title: "Looking good!", body: "You're hitting your goals consistently this week.", color: "var(--accent)" });
+    const activeDays = weekData.filter(d => d.calories > 0);
+    const logged = activeDays.length;
+
+    const onGoal = activeDays.filter(d => Math.abs(d.calories - goalsT.calories) / goalsT.calories < 0.1).length;
+    if (onGoal >= 3) ins.push({ icon: "\u{1F31F}", title: "Calorie consistency!", body: `${onGoal} out of 7 days within 10% of your goal. That's excellent discipline!`, color: "var(--accent)" });
+
+    const lowProt = activeDays.filter(d => d.g_protein < goalsT.g_protein * 0.8).length;
+    if (lowProt >= 3) ins.push({ icon: "\u{1F4AA}", title: "Protein opportunity", body: `Protein was below target on ${lowProt} days. Adding eggs, chicken, or yogurt can help close the gap.`, color: "var(--protein)" });
+    else if (lowProt === 0 && activeDays.length >= 3) ins.push({ icon: "\u2705", title: "Protein on point", body: "You've hit your protein target every active day this week. Keep it going!", color: "var(--protein)" });
+
+    const highCarb = activeDays.filter(d => d.g_carbs > goalsT.g_carbs * 1.1).length;
+    if (highCarb >= 3) ins.push({ icon: "\u{1F35E}", title: "Carbs trending high", body: `Carbs were over target ${highCarb} days. Swapping sides for veggies could help balance things out.`, color: "var(--warning)" });
+
+    const highFat = activeDays.filter(d => d.g_fat > goalsT.g_fat * 1.15).length;
+    if (highFat >= 3) ins.push({ icon: "\u{1F954}", title: "Fat running high", body: `Fat was over target on ${highFat} days. Consider lighter dressings or grilled options.`, color: "var(--fat-color)" });
+
+    if (logged >= 5) ins.push({ icon: "\u{1F525}", title: "Strong logging streak", body: `${logged} of 7 days logged. Consistency is the key to progress!`, color: "var(--accent)" });
+
+    if (!ins.length) ins.push({ icon: "\u{1F389}", title: "Looking great!", body: "You're hitting your goals consistently this week. Keep it up!", color: "var(--accent)" });
     return ins;
   }, [weekData, goalsT]);
 
   if (loading) return (
     <div style={{ paddingBottom: 110, animation: "pageIn 0.35s ease", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "80vh" }} role="status" aria-live="polite">
-      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>Loading trends...</div>
+      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>Loading analysis...</div>
     </div>
   );
 
@@ -178,7 +280,7 @@ export default function Trends() {
     <div style={{ paddingBottom: 110, animation: "pageIn 0.35s ease", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "80vh" }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 40, marginBottom: 12 }} aria-hidden="true">{"\uD83D\uDCE1"}</div>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, color: "var(--text-dim)", marginBottom: 8 }}>Could not load trends</div>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, color: "var(--text-dim)", marginBottom: 8 }}>Could not load analysis</div>
         <div style={{ fontSize: 13, color: "var(--text-dim)" }}>{error}</div>
       </div>
     </div>
@@ -191,23 +293,23 @@ export default function Trends() {
   const daysOnGoal  = weekData.filter(d => d.calories > 0 && Math.abs(d.calories - goalsT.calories) / goalsT.calories < 0.1).length;
 
   return (
-    <main className="trends-page" style={{ paddingBottom: 110, animation: "pageIn 0.35s ease" }}>
+    <main className="analysis-page" style={{ paddingBottom: 110, animation: "pageIn 0.35s ease" }}>
       <div style={{ position: "fixed", top: -80, left: "50%", transform: "translateX(-50%)", width: 500, height: 400, background: "radial-gradient(circle,var(--accent2)08 0%,transparent 65%)", pointerEvents: "none", zIndex: 0 }} aria-hidden="true" />
-      <div className="trends-inner" style={{ padding: "52px 22px 20px", position: "relative", zIndex: 1 }}>
+      <div className="analysis-inner" style={{ padding: "52px 22px 20px", position: "relative", zIndex: 1 }}>
         <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
           {weekData.length >= 2 ? `${weekData[0].date} \u2013 ${weekData[weekData.length - 1].date}` : "This week"}
         </div>
-        <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 28, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>Weekly <span style={{ color: "var(--accent2)" }}>Trends</span></h1>
+        <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 28, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>Weekly <span style={{ color: "var(--accent2)" }}>Analysis</span></h1>
       </div>
 
-      <div className="trends-inner" style={{ padding: "0 22px", position: "relative", zIndex: 1 }}>
+      <div className="analysis-inner" style={{ padding: "0 22px", position: "relative", zIndex: 1 }}>
         {/* Summary stats */}
-        <div className="trends-stats" style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+        <div className="analysis-stats" style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
           {[
             { l: "avg cal",     v: avgCal,          s: `goal ${goalsT.calories}`,  c: "var(--cal-color)" },
             { l: "avg protein", v: `${avgProt}g`,    s: `goal ${goalsT.g_protein}g`, c: "var(--protein)" },
             { l: "days logged", v: `${daysLogged}/7`, s: "this week",               c: "var(--accent)" },
-            { l: "on target",   v: `${daysOnGoal}d`, s: "within Â±10%",             c: "var(--warning)" },
+            { l: "on target",   v: `${daysOnGoal}d`, s: "within \u00B110%",          c: "var(--warning)" },
           ].map(({ l, v, s, c }) => (
             <div key={l} style={{ flex: "1 1 80px", background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 16, padding: "14px 8px", textAlign: "center" }}>
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 17, fontWeight: 700, color: c }}>{v}</div>
@@ -227,7 +329,7 @@ export default function Trends() {
         {/* Calories tab */}
         {tab === "calories" && (
           <div style={{ animation: "fadeSlideUp 0.35s ease" }}>
-            <div className="trends-chart-wrap" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 22, padding: "18px 16px 10px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
+            <div className="analysis-chart-wrap" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 22, padding: "18px 16px 10px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,var(--accent2)40,transparent)" }} aria-hidden="true" />
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>Calories {"\u00B7"} 7 days</div>
               <LineChart activeDay={activeDay} onDayClick={setActiveDay} weekData={weekData} goalsT={goalsT} />
@@ -299,7 +401,20 @@ export default function Trends() {
         {/* Insights tab */}
         {tab === "insights" && (
           <div style={{ animation: "fadeSlideUp 0.35s ease" }}>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 18, lineHeight: 1.6 }}>Patterns detected over the past 7 days based on your dining hall meals.</p>
+            {/* Written analysis */}
+            {writtenSummary && (
+              <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 22, padding: "20px 18px", marginBottom: 18, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent)", opacity: 0.5 }} aria-hidden="true" />
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 12 }}>Your Week in Review</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {writtenSummary.map((line, i) => (
+                    <p key={i} style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, margin: 0 }}>{line}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Nudges</div>
             {insights.map((ins, i) => (
               <div key={i} style={{ background: `${ins.color}08`, border: `1px solid ${ins.color}20`, borderRadius: 18, padding: 16, marginBottom: 10, animation: `fadeSlideUp 0.4s ${i * 0.08}s ease both`, display: "flex", gap: 14, alignItems: "flex-start" }}>
                 <span style={{ fontSize: 22, flexShrink: 0 }} aria-hidden="true">{ins.icon}</span>
@@ -309,7 +424,43 @@ export default function Trends() {
                 </div>
               </div>
             ))}
-            <div style={{ marginTop: 20, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 20, padding: 18 }}>
+
+            {/* Weekly macro balance */}
+            {(() => {
+              const active = weekData.filter(d => d.calories > 0);
+              if (!active.length) return null;
+              const tP = Math.round(active.reduce((s, d) => s + d.g_protein, 0) / active.length);
+              const tC = Math.round(active.reduce((s, d) => s + d.g_carbs, 0) / active.length);
+              const tF = Math.round(active.reduce((s, d) => s + d.g_fat, 0) / active.length);
+              const tot = tP + tC + tF;
+              if (tot === 0) return null;
+              const pP = Math.round(tP / tot * 100), pC = Math.round(tC / tot * 100), pF = 100 - pP - pC;
+              return (
+                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 20, padding: 18, marginBottom: 16 }}>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, marginBottom: 6, color: "var(--text-primary)" }}>Avg macro balance</div>
+                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", marginBottom: 12 }}>Based on {active.length} active day{active.length !== 1 ? "s" : ""}</div>
+                  <div style={{ display: "flex", height: 12, borderRadius: 99, overflow: "hidden", gap: 2, marginBottom: 10 }}>
+                    <div style={{ width: `${pP}%`, background: "var(--protein)", borderRadius: "99px 0 0 99px", minWidth: pP > 0 ? 4 : 0 }} />
+                    <div style={{ width: `${pC}%`, background: "var(--carbs-color)", minWidth: pC > 0 ? 4 : 0 }} />
+                    <div style={{ width: `${pF}%`, background: "var(--fat-color)", borderRadius: "0 99px 99px 0", minWidth: pF > 0 ? 4 : 0 }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    {[
+                      { label: "Protein", avg: `${tP}g`, pct: pP, c: "var(--protein)" },
+                      { label: "Carbs", avg: `${tC}g`, pct: pC, c: "var(--carbs-color)" },
+                      { label: "Fat", avg: `${tF}g`, pct: pF, c: "var(--fat-color)" },
+                    ].map(m => (
+                      <div key={m.label} style={{ textAlign: "center" }}>
+                        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, color: m.c }}>{m.pct}%</div>
+                        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", marginTop: 2 }}>{m.label} {"\u00B7"} {m.avg}/day</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 20, padding: 18 }}>
               <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, marginBottom: 14, color: "var(--text-primary)" }}>Logging streak</div>
               <div style={{ display: "flex", gap: 8 }} role="list">
                 {weekData.map((d, i) => (

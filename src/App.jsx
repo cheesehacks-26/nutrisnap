@@ -17,7 +17,7 @@ const NAV_ITEMS = [
   { key: "snap",    icon: "\uD83D\uDCF8", label: "Snap"    },
   { key: "menu",    icon: "\uD83D\uDCCB", label: "Menu"    },
   { key: "log",     icon: "\uD83D\uDCDD", label: "My Log"  },
-  { key: "trends",  icon: "\uD83D\uDCC8", label: "Trends"  },
+  { key: "analysis", icon: "\uD83D\uDCC8", label: "Analysis" },
   { key: "profile", icon: "\uD83D\uDC64", label: "Profile" },
 ];
 
@@ -203,12 +203,12 @@ button, input, select, textarea {
   .profile-page .profile-actions button { padding: 12px 16px; font-size: 14px; }
 }
 
-/* Trends page: comfortable width and larger components on big screens */
+/* Analysis page: comfortable width and larger components on big screens */
 @media (min-width: 1024px) {
-  .trends-page .trends-inner { max-width: 640px; margin-left: auto; margin-right: auto; padding-left: 28px; padding-right: 28px; }
-  .trends-page .trends-stats > div { flex: 1 1 140px; padding: 18px 12px; }
-  .trends-page .trends-chart-wrap { min-height: 220px; }
-  .trends-page [role="tablist"] { padding: 8px; }
+  .analysis-page .analysis-inner { max-width: 640px; margin-left: auto; margin-right: auto; padding-left: 28px; padding-right: 28px; }
+  .analysis-page .analysis-stats > div { flex: 1 1 140px; padding: 18px 12px; }
+  .analysis-page .analysis-chart-wrap { min-height: 220px; }
+  .analysis-page [role="tablist"] { padding: 8px; }
 }
 
 /* Icon-only sidebar on small landscape screens (phones in landscape) */
@@ -270,7 +270,7 @@ export default function App() {
     snap:    <SnapPage    onNav={setPage} />,
     menu:    <MenuBrowser onNav={setPage} />,
     log:     <MyLogPage   onNav={setPage} />,
-    trends:  <Trends />,
+    analysis: <Trends />,
     profile: <ProfilePage onNav={setPage} />,
   };
 
