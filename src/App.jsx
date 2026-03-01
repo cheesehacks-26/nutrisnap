@@ -399,8 +399,6 @@ function Dashboard({onNav}) {
   );
 }
 
-}
-
 // ═══════════════════════════════════════════════════════════════════
 // PAGE: SNAP
 // ═══════════════════════════════════════════════════════════════════
@@ -779,7 +777,6 @@ function MenuBrowser() {
       .finally(()=>setRecsLoading(false));
   },[mealType,token]);
 
-  const toggleTag=tag=>setActiveTags(p=>p.includes(tag)?p.filter(t=>t!==tag):[...p,tag]);
   const [menuItems,setMenuItems]=useState(MENU);
   const [menuLoading,setMenuLoading]=useState(true);
   const [logLoading,setLogLoading]=useState(false);
