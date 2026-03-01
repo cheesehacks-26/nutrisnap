@@ -7,6 +7,9 @@ export const TAG_STYLE = {
 
 export const MEAL_ICONS = { breakfast: "\uD83C\uDF73", lunch: "\u2600\uFE0F", dinner: "\uD83C\uDF19", snack: "\uD83C\uDF4E" };
 
+/** Max servings when logging (0.5 steps). Cap is only to keep UI sane; raise if needed. */
+export const MAX_SERVINGS = 99;
+
 // Added "snack" window for late-night / pre-dawn hours
 export const MEAL_FOR_HOUR = (h) =>
   h < 5 ? "CLOSED" : h < 11 ? "breakfast" : h < 16 ? "lunch" : h < 20 ? "dinner" : "CLOSED";

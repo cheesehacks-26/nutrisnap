@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import { apiGet, apiPost, API_BASE } from "../utils/api.js";
-import { MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, MEAL_ICONS, TAG_COLOR, HALL_NAMES } from "../utils/constants.js";
+import { MEAL_FOR_RECOMMEND, TAG_COLOR, MAX_SERVINGS } from "../utils/constants.js";
 
 const MEAL_OPTIONS = ["breakfast", "lunch", "dinner"];
 
@@ -58,7 +58,7 @@ function MatchCard({ item, score, onLog, confirmed, logging }) {
         <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-input)", borderRadius: 12, padding: "4px 12px", border: "1px solid var(--border)" }}>
           <button onClick={() => setServings(s => Math.max(0.5, s - 0.5))} aria-label="Decrease servings" style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 2px" }}>{"\u2212"}</button>
           <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--text-secondary)", minWidth: 28, textAlign: "center" }} aria-live="polite">{servings}{"\u00D7"}</span>
-          <button onClick={() => setServings(s => Math.min(4, s + 0.5))} aria-label="Increase servings" style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 2px" }}>+</button>
+          <button onClick={() => setServings(s => Math.min(MAX_SERVINGS, s + 0.5))} aria-label="Increase servings" style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 2px" }}>+</button>
         </div>
         <button onClick={() => onLog({ ...item, servings })} disabled={logging} aria-pressed={confirmed} style={{ flex: 1, padding: "10px 16px", borderRadius: 12, border: confirmed ? "2px solid var(--accent)" : "1px solid var(--border)", cursor: logging ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 13, background: confirmed ? "linear-gradient(135deg,var(--accent),var(--accent2))" : "var(--bg-input)", color: confirmed ? "var(--accent-contrast)" : "var(--text-secondary)", transition: "all 0.25s ease", boxShadow: confirmed ? "0 0 0 2px var(--accent)25" : "none" }}>
           {logging ? "Logging..." : confirmed ? "Logged" : "Log now"}
@@ -84,6 +84,7 @@ export default function SnapPage({ onNav }) {
   const [logError, setLogError]           = useState("");
   const [loggedCalories, setLoggedCalories] = useState(0);
   const [liveMenu, setLiveMenu]           = useState([]);
+  const [showNoMatchInfo, setShowNoMatchInfo] = useState(false);
   const videoRef    = useRef(null);
   const streamRef   = useRef(null);
   const fileInputRef = useRef(null);
@@ -167,9 +168,16 @@ export default function SnapPage({ onNav }) {
       }));
       setDetections((data.matched || []).map(i => ({ label: i.name, confidence: 0.9 })));
       setMatches(results);
-      setPhase(results.length > 0 ? "results" : "manual");
+      if (results.length > 0) {
+        setPhase("results");
+        setShowNoMatchInfo(false);
+      } else {
+        setShowNoMatchInfo(true);
+        setPhase("manual");
+      }
     } catch (e) {
       console.error("Snap analysis error:", e);
+      setShowNoMatchInfo(true);
       setPhase("manual");
     }
   }, [stopCamera, token, selectedHall, selectedMeal]);
@@ -211,15 +219,13 @@ export default function SnapPage({ onNav }) {
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  const currentMealLabel = selectedMeal.charAt(0).toUpperCase() + selectedMeal.slice(1);
-  const hallDisplayName = diningHalls.find(h => h.id === selectedHall)?.shortName
-    || HALL_NAMES[selectedHall]
-    || selectedHall;
-
-  const filteredMenu = liveMenu.filter(i =>
-    (i.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (i.station || "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const searchTerm = searchQuery.trim().toLowerCase();
+  const filteredMenu = searchTerm
+    ? liveMenu.filter(i =>
+        (i.name || "").toLowerCase().includes(searchTerm) ||
+        (i.station || "").toLowerCase().includes(searchTerm)
+      )
+    : liveMenu;
   const confirmedCount = Object.keys(confirmed).length;
 
   return (
@@ -247,10 +253,10 @@ export default function SnapPage({ onNav }) {
               value={selectedMeal}
               onChange={e => setSelectedMeal(e.target.value)}
               aria-label="Select meal"
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-input)", fontSize: 13, color: "var(--text-primary)", cursor: "pointer", appearance: "auto" }}
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid var(--border)", background: "var(--bg-input)", fontSize: 14, color: "var(--text-primary)", cursor: "pointer", appearance: "auto", minHeight: 44 }}
             >
               {MEAL_OPTIONS.map(m => (
-                <option key={m} value={m}>{MEAL_ICONS[m] || ""} {m.charAt(0).toUpperCase() + m.slice(1)}</option>
+                <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
               ))}
             </select>
           </div>
@@ -260,7 +266,7 @@ export default function SnapPage({ onNav }) {
               value={selectedHall}
               onChange={e => setSelectedHall(e.target.value)}
               aria-label="Select dining hall"
-              style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-input)", fontSize: 13, color: "var(--text-primary)", cursor: "pointer", appearance: "auto" }}
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid var(--border)", background: "var(--bg-input)", fontSize: 14, color: "var(--text-primary)", cursor: "pointer", appearance: "auto", minHeight: 44 }}
             >
               {diningHalls.length === 0 ? (
                 <option>Loading…</option>
@@ -274,25 +280,17 @@ export default function SnapPage({ onNav }) {
         </div>
       </div>
 
-      {/* IDLE phase */}
+      {/* IDLE phase — straight to camera or gallery */}
       {phase === "idle" && (
         <div style={{ padding: "0 24px", animation: "fadeSlideUp 0.5s ease", position: "relative", zIndex: 1 }}>
-          <button onClick={startCamera} aria-label="Open camera to scan meal" style={{ position: "relative", borderRadius: 24, overflow: "hidden", background: "linear-gradient(135deg,var(--bg-card),var(--bg-input))", border: "1px solid var(--border-faint)", aspectRatio: "4/3", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", maxWidth: 480, maxHeight: "50vh", margin: "0 auto" }}>
-            <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(var(--accent)03 1px,transparent 1px),linear-gradient(90deg,var(--accent)03 1px,transparent 1px)", backgroundSize: "40px 40px" }} aria-hidden="true" />
-            <CornerBracket style={{ top: 16, left: 16 }} />
-            <CornerBracket style={{ top: 16, right: 16, transform: "scaleX(-1)" }} />
-            <CornerBracket style={{ bottom: 16, left: 16, transform: "scaleY(-1)" }} />
-            <CornerBracket style={{ bottom: 16, right: 16, transform: "scale(-1)" }} />
-            <div style={{ animation: "float 3s ease-in-out infinite", textAlign: "center" }}>
-              <div style={{ fontSize: 52, marginBottom: 12 }} aria-hidden="true">{"\uD83C\uDF74"}</div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>Point &amp; Snap</div>
-              <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 6 }}>Tap to open camera</div>
-            </div>
-          </button>
-          <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-            <button onClick={startCamera} aria-label="Open camera" style={{ flex: 2, padding: 16, borderRadius: 18, border: "none", cursor: "pointer", background: "linear-gradient(135deg,var(--accent),var(--accent2))", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: "var(--accent-contrast)", boxShadow: "0 8px 32px var(--accent)40", animation: "pulse-ring 2.5s ease-in-out infinite" }}>{"\uD83D\uDCF0"} Open Camera</button>
-            <button onClick={() => fileInputRef.current?.click()} aria-label="Upload photo" style={{ flex: 1, padding: 16, borderRadius: 18, cursor: "pointer", background: "var(--bg-input)", border: "1px solid var(--border)", fontWeight: 600, fontSize: 14, color: "var(--text-muted)" }}>{"\uD83D\uDCCE"} Upload</button>
-            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={runAnalysis} aria-hidden="true" />
+          <div style={{ display: "flex", gap: 12 }}>
+            <button onClick={startCamera} aria-label="Open camera" style={{ flex: 2, padding: 20, borderRadius: 18, border: "none", cursor: "pointer", background: "linear-gradient(135deg,var(--accent),var(--accent2))", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: "var(--accent-contrast)", boxShadow: "0 8px 32px var(--accent)40" }}>
+              Open Camera
+            </button>
+            <button onClick={() => fileInputRef.current?.click()} aria-label="Choose from gallery or files" style={{ flex: 1, padding: 20, borderRadius: 18, cursor: "pointer", background: "var(--bg-input)", border: "1px solid var(--border)", fontWeight: 600, fontSize: 14, color: "var(--text-muted)" }}>
+              Files / Gallery
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={runAnalysis} aria-hidden="true" />
           </div>
         </div>
       )}
@@ -379,6 +377,12 @@ export default function SnapPage({ onNav }) {
       {/* MANUAL phase */}
       {phase === "manual" && (
         <div style={{ padding: "0 24px", animation: "fadeSlideUp 0.4s ease", position: "relative", zIndex: 1 }}>
+          {showNoMatchInfo && (
+            <div style={{ marginBottom: 16, padding: "14px 16px", borderRadius: 14, background: "var(--warning-bg)", border: "1px solid var(--warning)", color: "var(--warning)", fontSize: 13, display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <span style={{ flex: 1 }}>No matches found for your photo. Browse the menu below or try another photo.</span>
+              <button type="button" onClick={() => setShowNoMatchInfo(false)} aria-label="Dismiss" style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }}>{"\u00D7"}</button>
+            </div>
+          )}
           <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 20, color: "var(--text-primary)", marginBottom: 16 }}>Today's Menu</h2>
           <div style={{ position: "relative", marginBottom: 16 }}>
             <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search dishes or stations..."
@@ -392,7 +396,7 @@ export default function SnapPage({ onNav }) {
               Menu unavailable right now. Try the camera instead.
             </div>
           ) : filteredMenu.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-dim)", fontSize: 13 }}>No items match "{searchQuery}"</div>
+            <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-dim)", fontSize: 13 }}>No items match &quot;{searchTerm}&quot;</div>
           ) : (
             <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
               {filteredMenu.map(item => (

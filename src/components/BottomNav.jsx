@@ -2,6 +2,7 @@ const NAV_ITEMS = [
   { key: "home",    icon: "🏠", label: "Home"    },
   { key: "snap",    icon: "📸", label: "Snap"    },
   { key: "menu",    icon: "📋", label: "Menu"    },
+  { key: "log",     icon: "📝", label: "My Log"  },
   { key: "trends",  icon: "📈", label: "Trends"  },
   { key: "profile", icon: "👤", label: "Profile" },
 ];
