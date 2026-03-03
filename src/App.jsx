@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AuthProvider, AuthGate } from "./auth.jsx";
-import { ThemeProvider, useTheme } from "./utils/theme.jsx";
+import { ThemeProvider } from "./utils/theme.jsx";
 import BottomNav    from "./components/BottomNav.jsx";
 import Dashboard    from "./components/Dashboard.jsx";
 import SnapPage     from "./components/SnapPage.jsx";
@@ -22,7 +22,6 @@ const NAV_ITEMS = [
 ];
 
 function SidebarNav({ active, onNav }) {
-  const { isDark, toggle } = useTheme();
   return (
     <nav className="app-sidebar" aria-label="Main navigation">
       <div className="sidebar-brand">NutriSnap</div>
@@ -38,14 +37,6 @@ function SidebarNav({ active, onNav }) {
           <span className="sidebar-label">{label}</span>
         </button>
       ))}
-      <button
-        onClick={toggle}
-        className="sidebar-theme-toggle"
-        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      >
-        <span className="sidebar-icon" aria-hidden="true">{isDark ? "\u2600\uFE0F" : "\uD83C\uDF19"}</span>
-        <span className="sidebar-label">{isDark ? "Light" : "Dark"}</span>
-      </button>
     </nav>
   );
 }

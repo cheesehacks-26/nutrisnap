@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import { apiGet, API_BASE } from "../utils/api.js";
 import { DIETARY_PREFS, ALLERGEN_OPTIONS } from "../utils/constants.js";
+import { useTheme } from "../utils/theme.jsx";
 
 export default function ProfilePage({ onNav }) {
   const { token, logout } = useAuth();
+  const { isDark, toggle } = useTheme();
 
   const [profile,       setProfile]       = useState(null);
   const [targets,       setTargets]       = useState(null);
@@ -303,6 +305,30 @@ export default function ProfilePage({ onNav }) {
             </div>
           </div>
         )}
+
+        {/* Appearance */}
+        <div className="profile-card" style={cardStyle}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--accent2)50,transparent)", opacity: 0.6 }} aria-hidden="true" />
+          <div className="profile-section-title" style={sectionTitle}>Appearance</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>Dark mode</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{isDark ? "Dark theme is active" : "Light theme is active"}</div>
+            </div>
+            <button onClick={toggle} aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"} style={{
+              width: 52, height: 28, borderRadius: 99, border: "none", cursor: "pointer", position: "relative",
+              background: isDark ? "var(--accent)" : "var(--border-faint)", transition: "background 0.2s",
+            }}>
+              <span style={{
+                position: "absolute", top: 3, left: isDark ? 27 : 3,
+                width: 22, height: 22, borderRadius: "50%",
+                background: isDark ? "var(--accent-contrast)" : "#fff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left 0.2s",
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12,
+              }}>{isDark ? "\uD83C\uDF19" : "\u2600\uFE0F"}</span>
+            </button>
+          </div>
+        </div>
 
         <div className="profile-actions" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: 16, borderRadius: 18, border: "none", cursor: saving ? "not-allowed" : "pointer", background: saving ? "var(--bg-input)" : "linear-gradient(135deg,var(--accent),var(--accent2))", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: saving ? "var(--text-muted)" : "var(--accent-contrast)", boxShadow: saving ? "none" : "0 8px 32px var(--accent)40", transition: "all 0.2s" }} aria-label="Save profile and recalculate targets">
