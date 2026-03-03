@@ -5,6 +5,7 @@
 Mobile-first React app for NutriSnap: snap your tray, get nutrition info, and track macros with live dining hall menus and personalized recommendations.
 
 **Repositories:** [Frontend (this repo)](https://github.com/cheesehacks-26/nutrisnap) · [API (backend)](https://github.com/cheesehacks-26/nutrisnap-api)
+**Live App:** [https://nutrisnap-60w.pages.dev/](https://nutrisnap-60w.pages.dev/)
 
 ---
 
