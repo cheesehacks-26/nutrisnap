@@ -1,13 +1,16 @@
+import { useTheme } from "../utils/theme.jsx";
+
 const NAV_ITEMS = [
-  { key: "home",    icon: "🏠", label: "Home"    },
-  { key: "snap",    icon: "📸", label: "Snap"    },
-  { key: "menu",    icon: "📋", label: "Menu"    },
-  { key: "log",     icon: "📝", label: "My Log"  },
-  { key: "analysis", icon: "📈", label: "Analysis" },
-  { key: "profile", icon: "👤", label: "Profile" },
+  { key: "home",    icon: "\uD83C\uDFE0", label: "Home"    },
+  { key: "snap",    icon: "\uD83D\uDCF8", label: "Snap"    },
+  { key: "menu",    icon: "\uD83D\uDCCB", label: "Menu"    },
+  { key: "log",     icon: "\uD83D\uDCDD", label: "My Log"  },
+  { key: "analysis", icon: "\uD83D\uDCC8", label: "Analysis" },
+  { key: "profile", icon: "\uD83D\uDC64", label: "Profile" },
 ];
 
 export default function BottomNav({ active, onNav }) {
+  const { isDark, toggle } = useTheme();
   return (
     <nav
       className="bottom-nav"
@@ -39,6 +42,18 @@ export default function BottomNav({ active, onNav }) {
           </button>
         );
       })}
+      <button
+        onClick={toggle}
+        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        style={{
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+          cursor: "pointer", opacity: 0.32, transition: "opacity 0.2s",
+          background: "none", border: "none", padding: 0,
+        }}
+      >
+        <span style={{ fontSize: 20 }} aria-hidden="true">{isDark ? "\u2600\uFE0F" : "\uD83C\uDF19"}</span>
+        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.05em" }}>{isDark ? "Light" : "Dark"}</span>
+      </button>
     </nav>
   );
 }
