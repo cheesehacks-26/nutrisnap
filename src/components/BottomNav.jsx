@@ -1,10 +1,10 @@
 const NAV_ITEMS = [
-  { key: "home",    icon: "\uD83C\uDFE0", label: "Home"    },
-  { key: "snap",    icon: "\uD83D\uDCF8", label: "Snap"    },
-  { key: "menu",    icon: "\uD83D\uDCCB", label: "Menu"    },
-  { key: "log",     icon: "\uD83D\uDCDD", label: "My Log"  },
-  { key: "analysis", icon: "\uD83D\uDCC8", label: "Analysis" },
-  { key: "profile", icon: "\uD83D\uDC64", label: "Profile" },
+  { key: "home",    icon: "🏠", label: "Home"    },
+  { key: "snap",    icon: "📸", label: "Snap"    },
+  { key: "menu",    icon: "📋", label: "Menu"    },
+  { key: "log",     icon: "📝", label: "My Log"  },
+  { key: "analysis", icon: "📈", label: "Analysis" },
+  { key: "profile", icon: "👤", label: "Profile" },
 ];
 
 export default function BottomNav({ active, onNav }) {
@@ -16,7 +16,7 @@ export default function BottomNav({ active, onNav }) {
         position: "fixed", bottom: 0, left: 0, right: 0,
         background: "var(--bg-nav)", backdropFilter: "blur(20px)",
         borderTop: "1px solid var(--border-faint)",
-        padding: "14px 24px 28px", display: "flex", justifyContent: "space-around", zIndex: 50,
+        padding: "10px 8px 24px", display: "flex", justifyContent: "space-around", zIndex: 50,
       }}
     >
       {NAV_ITEMS.map(({ key, icon, label }) => {
@@ -28,14 +28,38 @@ export default function BottomNav({ active, onNav }) {
             aria-label={label}
             aria-current={isActive ? "page" : undefined}
             style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-              cursor: "pointer", opacity: isActive ? 1 : 0.32, transition: "opacity 0.2s",
-              background: "none", border: "none", padding: 0,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              cursor: "pointer", transition: "opacity 0.2s",
+              background: isActive ? "color-mix(in srgb, var(--accent) 12%, transparent)" : "none",
+              border: "none",
+              borderRadius: 14,
+              padding: "7px 14px",
+              minWidth: 52,
             }}
           >
-            <span style={{ fontSize: 20 }} aria-hidden="true">{icon}</span>
-            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: isActive ? "var(--accent)" : "var(--text-muted)", letterSpacing: "0.05em" }}>{label}</span>
-            {isActive && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--accent)" }} aria-hidden="true" />}
+            <span
+              style={{
+                fontSize: 20,
+                filter: isActive ? "none" : "grayscale(0.4)",
+                opacity: isActive ? 1 : 0.55,
+                transition: "opacity 0.2s, filter 0.2s",
+              }}
+              aria-hidden="true"
+            >
+              {icon}
+            </span>
+            <span
+              style={{
+                fontFamily: "'DM Sans',sans-serif",
+                fontSize: 10,
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? "var(--accent)" : "var(--text-muted)",
+                letterSpacing: "0.01em",
+                transition: "color 0.2s",
+              }}
+            >
+              {label}
+            </span>
           </button>
         );
       })}
