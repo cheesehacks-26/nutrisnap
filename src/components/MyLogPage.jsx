@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
 import { apiGet, apiDelete } from "../utils/api.js";
-import { MEAL_ICONS, TODAY } from "../utils/constants.js";
+import { MEAL_ICONS } from "../utils/constants.js";
+import { parseLogs } from "../utils/parseLogs.js";
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 function MealCard({ meal, onDelete, deletingLogId }) {
   const [open, setOpen] = useState(false);
@@ -63,24 +66,10 @@ export default function MyLogPage({ onNav }) {
   const [error, setError] = useState("");
   const [deletingLogId, setDeletingLogId] = useState(null);
 
-  const parseLogs = (logs) => {
-    const groups = {};
-    (logs || []).forEach(log => {
-      const mt = log.meal_type || "snack";
-      if (!groups[mt]) groups[mt] = { meal_id: mt, meal_type: mt, logged_at: log.logged_at, dishes: [], total_nutrition: { calories: 0, g_protein: 0, g_carbs: 0, g_fat: 0 } };
-      groups[mt].dishes.push({ log_id: log.id ?? log.log_id, food_id: log.food_id || log.id, name: log.food_name, station: log.hall || "", servings: log.quantity || 1, nutrition: { calories: log.calories || 0, g_protein: log.protein_g || 0, g_carbs: log.carbs_g || 0, g_fat: log.fat_g || 0, mg_sodium: log.sodium_mg || 0 } });
-      groups[mt].total_nutrition.calories  += log.calories || 0;
-      groups[mt].total_nutrition.g_protein += log.protein_g || 0;
-      groups[mt].total_nutrition.g_carbs   += log.carbs_g || 0;
-      groups[mt].total_nutrition.g_fat     += log.fat_g || 0;
-    });
-    return Object.values(groups);
-  };
-
   const loadLogs = () => {
     setLoading(true);
     setError("");
-    apiGet(`/api/log?date=${TODAY}`, token)
+    apiGet(`/api/log?date=${today()}`, token)
       .then(lData => {
         setTodayLogs(parseLogs(lData.logs));
       })
@@ -91,6 +80,7 @@ export default function MyLogPage({ onNav }) {
       .finally(() => setLoading(false));
   };
 
+  useEffect(() => { document.title = "NutriSnap — My Log"; }, []);
   useEffect(() => { loadLogs(); }, [token]);
 
   const handleDeleteLog = async (logId) => {
@@ -98,7 +88,7 @@ export default function MyLogPage({ onNav }) {
     setDeletingLogId(logId);
     try {
       await apiDelete(`/api/log/${logId}`, token);
-      const lData = await apiGet(`/api/log?date=${TODAY}`, token);
+      const lData = await apiGet(`/api/log?date=${today()}`, token);
       setTodayLogs(parseLogs(lData.logs));
     } catch (e) {
       console.error("Delete log error:", e);
@@ -144,11 +134,11 @@ export default function MyLogPage({ onNav }) {
             <>
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 16, marginBottom: 8 }}>Add a meal</div>
               {unloggedMeals.map(meal => (
-                <button key={meal} onClick={() => onNav("menu")} aria-label={`Log ${meal}`} style={{ border: "1px dashed var(--border)", borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 8, width: "100%", background: "none" }}>
+                <button key={meal} onClick={() => onNav("snap")} aria-label={`Log ${meal}`} style={{ border: "1px dashed var(--border)", borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 8, width: "100%", background: "none" }}>
                   <div style={{ width: 40, height: 40, borderRadius: 14, background: "var(--bg-input)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{MEAL_ICONS[meal]}</div>
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-secondary)", textTransform: "capitalize" }}>{meal} not logged yet</div>
-                    <div style={{ fontSize: 10, color: "var(--accent)", marginTop: 2, fontWeight: 600 }}>+ Tap to log</div>
+                    <div style={{ fontSize: 10, color: "var(--accent)", marginTop: 2, fontWeight: 600 }}>+ Snap to log</div>
                   </div>
                 </button>
               ))}

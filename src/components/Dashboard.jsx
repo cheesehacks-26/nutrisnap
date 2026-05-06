@@ -1,14 +1,15 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../auth.jsx";
 import { apiGet, apiDelete, API_BASE } from "../utils/api.js";
-import { MEAL_ICONS, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, TODAY, TAG_COLOR } from "../utils/constants.js";
+import { MEAL_ICONS, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, TAG_COLOR } from "../utils/constants.js";
+import { parseLogs } from "../utils/parseLogs.js";
 
 // ── Dining Status Strip ──────────────────────────────────────────────
-// UW Madison hours: Breakfast 7–10:30, Lunch 11–3, Dinner 4:30–8
+// UW Madison Gordon hours: Breakfast 7–10, Lunch 11–14, Dinner 16–20
 const MEAL_WINDOWS = [
-  { meal: "breakfast", open: 7,    close: 10.5, label: "Breakfast",  icon: "🌅" },
-  { meal: "lunch",     open: 11,   close: 16,   label: "Lunch",      icon: "☀️" },
-  { meal: "dinner",    open: 16.5, close: 20,   label: "Dinner",     icon: "🌙" },
+  { meal: "breakfast", open: 7,  close: 10, label: "Breakfast", icon: "🌅" },
+  { meal: "lunch",     open: 11, close: 14, label: "Lunch",     icon: "☀️" },
+  { meal: "dinner",    open: 16, close: 20, label: "Dinner",    icon: "🌙" },
 ];
 
 function DiningStatusStrip() {
@@ -38,7 +39,11 @@ function DiningStatusStrip() {
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: bg, border: `1px solid ${color}25`, borderRadius: 14, padding: "10px 16px", marginBottom: 16 }}>
+    <div
+      role="status"
+      aria-label={`${label} ${timeText}`}
+      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: bg, border: `1px solid ${color}25`, borderRadius: 14, padding: "10px 16px", marginBottom: 16 }}
+    >
       <span style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</span>
       <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color, fontWeight: 700 }}>{timeText}</span>
     </div>
@@ -46,19 +51,21 @@ function DiningStatusStrip() {
 }
 
 // ── Water Tracker ────────────────────────────────────────────────────
-const WATER_KEY = `water_${TODAY}`;
 const GOAL_GLASSES = 8;
 
 function WaterTracker() {
+  // Key computed on mount so the tracker resets correctly if the app is open past midnight
+  const waterKey = useMemo(() => `water_${new Date().toISOString().slice(0, 10)}`, []);
+
   const [glasses, setGlasses] = useState(() => {
-    try { return Math.min(GOAL_GLASSES, parseInt(localStorage.getItem(WATER_KEY) || "0", 10)) || 0; }
+    try { return Math.min(GOAL_GLASSES, parseInt(localStorage.getItem(`water_${new Date().toISOString().slice(0, 10)}`) || "0", 10)) || 0; }
     catch { return 0; }
   });
 
   const update = (next) => {
     const n = Math.max(0, Math.min(GOAL_GLASSES, next));
     setGlasses(n);
-    try { localStorage.setItem(WATER_KEY, String(n)); } catch {}
+    try { localStorage.setItem(waterKey, String(n)); } catch {}
   };
 
   const pct = glasses / GOAL_GLASSES;
@@ -86,7 +93,7 @@ function WaterTracker() {
               aria-label={i < glasses ? `Remove glass ${i + 1}` : `Add glass ${i + 1}`}
               style={{ flex: 1, height: 28, borderRadius: 8, border: `2px solid ${i < glasses ? "var(--accent2)" : "var(--border-faint)"}`, background: i < glasses ? "color-mix(in srgb, var(--accent2) 20%, transparent)" : "transparent", cursor: "pointer", transition: "all 0.2s", padding: 0 }}
             >
-              <span style={{ fontSize: 10 }}>{i < glasses ? "💧" : ""}</span>
+              <span style={{ fontSize: 10, opacity: i < glasses ? 1 : 0.2 }}>💧</span>
             </button>
           ))}
         </div>
@@ -112,8 +119,9 @@ function CalorieRing({ consumed, goal }) {
   const pct = goal > 0 ? Math.min(1, consumed / goal) : 0;
   const [anim, setAnim] = useState(0);
   useEffect(() => { const t = setTimeout(() => setAnim(pct), 120); return () => clearTimeout(t); }, [pct]);
-  const grade = pct >= 0.9 ? "A" : pct >= 0.7 ? "B" : pct >= 0.5 ? "C" : "D";
-  const gradeColor = over ? "var(--danger)" : pct >= 0.7 ? "var(--accent)" : pct >= 0.5 ? "var(--warning)" : "var(--text-dim)";
+  const gradeSymbol = pct >= 0.9 ? "✓" : pct >= 0.7 ? "~" : "↓";
+  const gradeTitle  = pct >= 0.9 ? "On track" : pct >= 0.7 ? "Getting there" : "Keep logging";
+  const gradeColor  = over ? "var(--danger)" : pct >= 0.7 ? "var(--accent)" : pct >= 0.5 ? "var(--warning)" : "var(--text-dim)";
 
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
@@ -147,8 +155,8 @@ function CalorieRing({ consumed, goal }) {
         )}
       </div>
       {consumed > 0 && (
-        <div style={{ position: "absolute", top: 4, right: 4, width: 28, height: 28, borderRadius: "50%", background: `${gradeColor}20`, border: `2px solid ${gradeColor}`, display: "flex", alignItems: "center", justifyContent: "center", animation: pct >= 0.9 && !over ? "pulse-ring 2s infinite" : "none" }}>
-          <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 12, color: gradeColor }}>{over ? "!" : grade}</span>
+        <div title={over ? "Over goal" : gradeTitle} style={{ position: "absolute", top: 4, right: 4, width: 28, height: 28, borderRadius: "50%", background: `color-mix(in srgb, ${gradeColor} 20%, transparent)`, border: `2px solid ${gradeColor}`, display: "flex", alignItems: "center", justifyContent: "center", animation: pct >= 0.9 && !over ? "pulse-ring 2s infinite" : "none" }}>
+          <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 12, color: gradeColor }}>{over ? "!" : gradeSymbol}</span>
         </div>
       )}
     </div>
@@ -330,29 +338,17 @@ export default function Dashboard({ onNav }) {
   const [deletingLogId, setDeletingLogId] = useState(null);
 
   useEffect(() => {
+    document.title = "NutriSnap — Home";
     const h = new Date().getHours();
     setGreeting(h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening");
   }, []);
 
-  const parseLogs = (logs) => {
-    const groups = {};
-    (logs || []).forEach(log => {
-      const mt = log.meal_type || "snack";
-      if (!groups[mt]) groups[mt] = { meal_id: mt, meal_type: mt, logged_at: log.logged_at, dishes: [], total_nutrition: { calories: 0, g_protein: 0, g_carbs: 0, g_fat: 0 } };
-      groups[mt].dishes.push({ log_id: log.id ?? log.log_id, food_id: log.food_id || log.id, name: log.food_name, station: log.hall || "", servings: log.quantity || 1, nutrition: { calories: log.calories || 0, g_protein: log.protein_g || 0, g_carbs: log.carbs_g || 0, g_fat: log.fat_g || 0, mg_sodium: log.sodium_mg || 0 } });
-      groups[mt].total_nutrition.calories  += log.calories || 0;
-      groups[mt].total_nutrition.g_protein += log.protein_g || 0;
-      groups[mt].total_nutrition.g_carbs   += log.carbs_g || 0;
-      groups[mt].total_nutrition.g_fat     += log.fat_g || 0;
-    });
-    return Object.values(groups);
-  };
 
+  const today = new Date().toISOString().slice(0, 10);
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 8000);
     Promise.all([
       apiGet("/api/profile", token).catch(() => ({ profile: null })),
-      apiGet(`/api/log?date=${TODAY}`, token).catch(() => ({ logs: [], totals: {} })),
+      apiGet(`/api/log?date=${today}`, token).catch(() => ({ logs: [], totals: {} })),
       apiGet("/api/targets", token).catch(() => ({ targets: null })),
     ]).then(([pData, lData, tData]) => {
       setProfile({ ...(pData.profile || {}), ...(tData.targets || {}) });
@@ -361,7 +357,7 @@ export default function Dashboard({ onNav }) {
     }).catch(e => {
       console.error("Dashboard load error:", e);
       setError("Failed to load your data. Pull to retry.");
-    }).finally(() => { clearTimeout(timer); setLoading(false); });
+    }).finally(() => setLoading(false));
   }, [token]);
 
   // Fetch dining halls list once
@@ -395,7 +391,7 @@ export default function Dashboard({ onNav }) {
     setDeletingLogId(logId);
     try {
       await apiDelete(`/api/log/${logId}`, token);
-      const lData = await apiGet(`/api/log?date=${TODAY}`, token);
+      const lData = await apiGet(`/api/log?date=${today}`, token);
       setTodayLogs(parseLogs(lData.logs));
       setTodayTotals(lData.totals || { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
     } catch (e) {
@@ -573,7 +569,7 @@ export default function Dashboard({ onNav }) {
               ) : (
                 <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }} role="list">
                   {recs.map(item => (
-                    <div key={item.food_id} role="listitem" style={{ flexShrink: 0, width: 200, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, padding: 14, cursor: "pointer", position: "relative" }}>
+                    <button key={item.food_id} role="listitem" onClick={() => onNav("menu")} aria-label={`View ${item.name} in menu`} style={{ flexShrink: 0, width: 200, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, padding: 14, cursor: "pointer", position: "relative", textAlign: "left" }}>
                       {/* Score badge */}
                       <div style={{ position: "absolute", top: 10, right: 10, fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 12%, transparent)", padding: "2px 7px", borderRadius: 99, border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)" }}>{Math.round(item.score)}% fit</div>
                       <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 3, lineHeight: 1.3, paddingRight: 44, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.name}</div>
@@ -586,7 +582,7 @@ export default function Dashboard({ onNav }) {
                         <div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--cal-color)" }}>{item.nutrition.calories}</div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}>kcal</div></div>
                         <div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--protein)" }}>{item.nutrition.g_protein}g</div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}>protein</div></div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

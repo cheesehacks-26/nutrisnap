@@ -1,4 +1,3 @@
-export const TAG_COLOR = { Vegan: "#4ade80", Vegetarian: "#86efac", "Gluten-Free": "#fbbf24" };
 export const TAG_STYLE = {
   Vegan:         { bg: "#4ade8018", border: "#4ade8040", color: "#4ade80" },
   Vegetarian:    { bg: "#86efac18", border: "#86efac40", color: "#86efac" },
@@ -8,6 +7,11 @@ export const TAG_STYLE = {
   "Egg-Free":    { bg: "#fb923c18", border: "#fb923c40", color: "#fb923c" },
   "Soy-Free":    { bg: "#a78bfa18", border: "#a78bfa40", color: "#a78bfa" },
 };
+
+// Derived from TAG_STYLE — single source of truth
+export const TAG_COLOR = Object.fromEntries(
+  Object.entries(TAG_STYLE).map(([k, v]) => [k, v.color])
+);
 
 export const PROFILE_TO_MENU_TAG = {
   vegan:       "Vegan",
@@ -24,9 +28,9 @@ export const MEAL_ICONS = { breakfast: "\uD83C\uDF73", lunch: "\u2600\uFE0F", di
 /** Max servings when logging (0.5 steps). Cap is only to keep UI sane; raise if needed. */
 export const MAX_SERVINGS = 99;
 
-// Added "snack" window for late-night / pre-dawn hours
+// UW Madison Gordon hours: Breakfast 7–10, Lunch 11–14, Dinner 16–20
 export const MEAL_FOR_HOUR = (h) =>
-  h < 5 ? "CLOSED" : h < 11 ? "breakfast" : h < 16 ? "lunch" : h < 20 ? "dinner" : "CLOSED";
+  h < 7 ? "CLOSED" : h < 10 ? "breakfast" : h < 11 ? "CLOSED" : h < 14 ? "lunch" : h < 16 ? "CLOSED" : h < 20 ? "dinner" : "CLOSED";
 
 // When dining is closed, return the next open meal for recommendations (breakfast).
 export const MEAL_FOR_RECOMMEND = (h) => {
