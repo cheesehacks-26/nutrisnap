@@ -3,18 +3,17 @@ import { useAuth } from "../auth.jsx";
 import { apiGet } from "../utils/api.js";
 
 const CH = 160, CW = 340, PL = 36, PB = 28, PR = 12, PT = 16, IW = CW - PL - PR, IH = CH - PT - PB;
-const CAL_MAX = 2800;
 const xp = (i, len) => PL + (i / Math.max(len - 1, 1)) * IW;
 const yp = (v, m) => PT + IH - (v / m) * IH;
 
-function LineChart({ activeDay, onDayClick, weekData, goalsT }) {
+function LineChart({ activeDay, onDayClick, weekData, goalsT, calMax }) {
   const pathRef = useRef(null);
   const [drawn, setDrawn] = useState(0);
   const [len, setLen] = useState(1000);
   const n = weekData.length;
-  const linePath = weekData.map((d, i) => `${i === 0 ? "M" : "L"} ${xp(i, n).toFixed(1)} ${yp(d.calories, CAL_MAX).toFixed(1)}`).join(" ");
+  const linePath = weekData.map((d, i) => `${i === 0 ? "M" : "L"} ${xp(i, n).toFixed(1)} ${yp(d.calories, calMax).toFixed(1)}`).join(" ");
   const areaPath = linePath + ` L ${xp(n - 1, n).toFixed(1)} ${(PT + IH).toFixed(1)} L ${xp(0, n).toFixed(1)} ${(PT + IH).toFixed(1)} Z`;
-  const goalY = yp(goalsT.calories, CAL_MAX);
+  const goalY = yp(goalsT.calories, calMax);
 
   useEffect(() => {
     if (!pathRef.current) return;
@@ -40,14 +39,14 @@ function LineChart({ activeDay, onDayClick, weekData, goalsT }) {
       {[0, 0.25, 0.5, 0.75, 1].map(f => { const y = PT + IH * (1 - f); return (
         <g key={f}>
           <line x1={PL} y1={y} x2={CW - PR} y2={y} stroke="var(--border-faint)" strokeWidth="1" />
-          <text x={PL - 4} y={y + 4} textAnchor="end" fill="var(--text-dim)" fontSize="8" fontFamily="Space Mono,monospace">{Math.round(CAL_MAX * f / 100) * 100}</text>
+          <text x={PL - 4} y={y + 4} textAnchor="end" fill="var(--text-dim)" fontSize="8" fontFamily="Space Mono,monospace">{Math.round(calMax * f / 100) * 100}</text>
         </g>
       ); })}
       <line x1={PL} y1={goalY} x2={CW - PR} y2={goalY} stroke="var(--accent)" strokeWidth="1" strokeDasharray="4 4" opacity="0.35" />
       <path d={areaPath} fill="url(#ag)" />
       <path ref={pathRef} d={linePath} fill="none" stroke="url(#lg)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={len} strokeDashoffset={len - drawn} />
       {weekData.map((d, i) => {
-        const cx = xp(i, n), cy = yp(d.calories, CAL_MAX), isActive = activeDay === i, over = d.calories > goalsT.calories;
+        const cx = xp(i, n), cy = yp(d.calories, calMax), isActive = activeDay === i, over = d.calories > goalsT.calories;
         return (
           <g key={i} onClick={() => onDayClick(i)} style={{ cursor: "pointer" }} role="button" aria-label={`${d.day}: ${d.calories} kcal`}>
             <circle cx={cx} cy={cy} r={isActive ? 7 : 4.5} fill={over ? "var(--danger)" : "var(--accent)"} stroke="var(--bg)" strokeWidth="2" style={{ transition: "r 0.2s", filter: isActive ? `drop-shadow(0 0 6px ${over ? "var(--danger)" : "var(--accent)"})` : "none" }} />
@@ -271,8 +270,9 @@ export default function Trends() {
   }, [weekData, goalsT]);
 
   if (loading) return (
-    <div style={{ paddingBottom: 110, animation: "pageIn 0.35s ease", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "80vh" }} role="status" aria-live="polite">
-      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }}>Loading analysis...</div>
+    <div style={{ paddingBottom: 110, animation: "pageIn 0.35s ease", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, minHeight: "80vh" }} role="status" aria-live="polite">
+      <div style={{ width: 28, height: 28, border: "3px solid var(--border-faint)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} aria-hidden="true" />
+      <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading analysis...</div>
     </div>
   );
 
@@ -285,6 +285,14 @@ export default function Trends() {
       </div>
     </div>
   );
+
+  const calMax = weekData.length > 0
+    ? Math.max(
+        Math.ceil(Math.max(...weekData.map(d => d.calories)) * 1.2 / 100) * 100,
+        Math.ceil(goalsT.calories * 1.25 / 100) * 100,
+        500
+      )
+    : 2800;
 
   const sel = weekData[activeDay] || { calories: 0, g_protein: 0, g_carbs: 0, g_fat: 0, date: "", meals: 0 };
   const avgCal   = weekData.length ? Math.round(weekData.reduce((s, d) => s + d.calories,  0) / weekData.length) : 0;
@@ -332,7 +340,7 @@ export default function Trends() {
             <div className="analysis-chart-wrap" style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 22, padding: "18px 16px 10px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,var(--accent2)40,transparent)" }} aria-hidden="true" />
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>Calories {"\u00B7"} 7 days</div>
-              <LineChart activeDay={activeDay} onDayClick={setActiveDay} weekData={weekData} goalsT={goalsT} />
+              <LineChart activeDay={activeDay} onDayClick={setActiveDay} weekData={weekData} goalsT={goalsT} calMax={calMax} />
             </div>
             <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, padding: 16, marginBottom: 16, animation: "fadeIn 0.25s ease" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>

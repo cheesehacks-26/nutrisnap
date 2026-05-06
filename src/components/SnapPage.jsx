@@ -3,7 +3,7 @@ import { useAuth } from "../auth.jsx";
 import { apiGet, apiPost, API_BASE } from "../utils/api.js";
 import { MEAL_FOR_RECOMMEND, TAG_COLOR, MAX_SERVINGS } from "../utils/constants.js";
 
-const MEAL_OPTIONS = ["breakfast", "lunch", "dinner"];
+const MEAL_OPTIONS = ["breakfast", "lunch", "dinner", "snack"];
 
 // â”€â”€ Corner Bracket (camera viewfinder) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function CornerBracket({ style }) {
@@ -85,6 +85,7 @@ export default function SnapPage({ onNav }) {
   const [loggedCalories, setLoggedCalories] = useState(0);
   const [liveMenu, setLiveMenu]           = useState([]);
   const [showNoMatchInfo, setShowNoMatchInfo] = useState(false);
+  const [cameraError, setCameraError]         = useState("");
   const videoRef    = useRef(null);
   const streamRef   = useRef(null);
   const fileInputRef = useRef(null);
@@ -119,6 +120,7 @@ export default function SnapPage({ onNav }) {
   }, []);
 
   const startCamera = useCallback(async () => {
+    setCameraError("");
     try {
       let stream;
       try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); }
@@ -133,6 +135,10 @@ export default function SnapPage({ onNav }) {
       }, 50);
     } catch (e) {
       console.error("Camera error:", e);
+      const msg = e?.name === "NotAllowedError"
+        ? "Camera access denied. Please allow camera permission in your browser settings, or use Files / Gallery instead."
+        : "Could not access camera. Try using Files / Gallery instead.";
+      setCameraError(msg);
     }
   }, []);
 
@@ -229,7 +235,7 @@ export default function SnapPage({ onNav }) {
   const confirmedCount = Object.keys(confirmed).length;
 
   return (
-    <main style={{ paddingBottom: 100, animation: "pageIn 0.35s ease" }}>
+    <main className="snap-page" style={{ paddingBottom: 100, animation: "pageIn 0.35s ease" }}>
       <div style={{ position: "fixed", top: -100, left: "50%", transform: "translateX(-50%)", width: 600, height: 600, background: "radial-gradient(circle, var(--glow) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} aria-hidden="true" />
 
       {/* Header — meal & location dropdowns + manual on one page */}
@@ -241,9 +247,9 @@ export default function SnapPage({ onNav }) {
           <button
             onClick={() => setPhase(p => p === "manual" ? (matches.length ? "results" : "idle") : "manual")}
             aria-label={phase === "manual" ? "Back" : "Browse menu manually"}
-            style={{ background: phase === "manual" ? "var(--accent)15" : "var(--bg-input)", border: `1px solid ${phase === "manual" ? "var(--accent)40" : "var(--border)"}`, borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontFamily: "'Space Mono',monospace", fontSize: 10, color: phase === "manual" ? "var(--accent)" : "var(--text-muted)", letterSpacing: "0.05em", transition: "all 0.2s" }}
+            style={{ background: phase === "manual" ? "color-mix(in srgb, var(--accent) 12%, transparent)" : "var(--bg-input)", border: `1px solid ${phase === "manual" ? "color-mix(in srgb, var(--accent) 35%, transparent)" : "var(--border)"}`, borderRadius: 12, padding: "9px 16px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13, color: phase === "manual" ? "var(--accent)" : "var(--text-muted)", transition: "all 0.2s" }}
           >
-            {phase === "manual" ? "\u2190 BACK" : "MANUAL"}
+            {phase === "manual" ? "\u2190 Back" : "Browse menu"}
           </button>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -266,7 +272,8 @@ export default function SnapPage({ onNav }) {
               value={selectedHall}
               onChange={e => setSelectedHall(e.target.value)}
               aria-label="Select dining hall"
-              style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid var(--border)", background: "var(--bg-input)", fontSize: 14, color: "var(--text-primary)", cursor: "pointer", appearance: "auto", minHeight: 44 }}
+              disabled={diningHalls.length === 0}
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid var(--border)", background: "var(--bg-input)", fontSize: 14, color: diningHalls.length === 0 ? "var(--text-dim)" : "var(--text-primary)", cursor: diningHalls.length === 0 ? "not-allowed" : "pointer", appearance: "auto", minHeight: 44, opacity: diningHalls.length === 0 ? 0.6 : 1 }}
             >
               {diningHalls.length === 0 ? (
                 <option>Loading…</option>
@@ -283,6 +290,11 @@ export default function SnapPage({ onNav }) {
       {/* IDLE phase — straight to camera or gallery */}
       {phase === "idle" && (
         <div style={{ padding: "0 24px", animation: "fadeSlideUp 0.5s ease", position: "relative", zIndex: 1 }}>
+          {cameraError && (
+            <div style={{ background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 14, padding: "11px 16px", fontSize: 13, color: "var(--danger)", marginBottom: 14 }} role="alert">
+              {cameraError}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 12 }}>
             <button onClick={startCamera} aria-label="Open camera" style={{ flex: 2, padding: 20, borderRadius: 18, border: "none", cursor: "pointer", background: "linear-gradient(135deg,var(--accent),var(--accent2))", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: "var(--accent-contrast)", boxShadow: "0 8px 32px var(--accent)40" }}>
               Open Camera
@@ -291,6 +303,25 @@ export default function SnapPage({ onNav }) {
               Files / Gallery
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={runAnalysis} aria-hidden="true" />
+          </div>
+          <div style={{ marginTop: 20, border: "2px dashed var(--border)", borderRadius: 20, padding: "28px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 44, marginBottom: 12 }} aria-hidden="true">{"📷"}</div>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text-secondary)", marginBottom: 8 }}>Point at your tray</div>
+            <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.65, marginBottom: 20, maxWidth: 300, margin: "0 auto 20px" }}>
+              We'll identify every dish and match it to today's dining hall menu — then log your macros automatically.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { icon: "⚡", text: "Instant AI dish recognition" },
+                { icon: "🎯", text: "Matched to your dining hall menu" },
+                { icon: "📊", text: "Macros logged automatically" },
+              ].map(({ icon, text }) => (
+                <div key={text} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--bg-input)", borderRadius: 12, padding: "9px 14px", textAlign: "left" }}>
+                  <span style={{ fontSize: 15, flexShrink: 0 }} aria-hidden="true">{icon}</span>
+                  <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{text}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -429,6 +460,12 @@ export default function SnapPage({ onNav }) {
           <div style={{ marginTop: 32, padding: "14px 28px", borderRadius: 16, background: "var(--accent)08", border: "1px solid var(--accent)30", fontSize: 13, color: "var(--accent)" }}>
             {loggedCalories} kcal added today
           </div>
+          <button
+            onClick={() => { setShowSuccess(false); onNav("log"); }}
+            style={{ marginTop: 20, padding: "12px 28px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-input)", fontSize: 13, color: "var(--text-secondary)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}
+          >
+            View My Log {"\u2192"}
+          </button>
         </div>
       )}
     </main>

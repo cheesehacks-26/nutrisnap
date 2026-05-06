@@ -112,7 +112,7 @@ export default function MyLogPage({ onNav }) {
   const unloggedMeals = ["breakfast", "lunch", "dinner"].filter(m => !loggedMealTypes.has(m));
 
   return (
-    <main style={{ paddingBottom: 110, animation: "pageIn 0.35s ease" }}>
+    <main className="mylog-page" style={{ paddingBottom: 110, animation: "pageIn 0.35s ease" }}>
       <div style={{ position: "fixed", top: -80, left: "50%", transform: "translateX(-50%)", width: 500, height: 500, background: "radial-gradient(circle, var(--glow) 0%, transparent 65%)", pointerEvents: "none", zIndex: 0 }} aria-hidden="true" />
 
       <div style={{ padding: "52px 22px 20px", position: "relative", zIndex: 1 }}>
@@ -136,19 +136,19 @@ export default function MyLogPage({ onNav }) {
           {loading ? (
             [0, 1, 2].map(i => <div key={i} style={{ height: 64, borderRadius: 18, marginBottom: 10, background: "var(--bg-card)", backgroundImage: "linear-gradient(90deg,transparent,var(--border-faint),transparent)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />)
           ) : todayLogs.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-dim)", padding: "16px 0" }}>Nothing logged yet today. Tap a meal below to browse the menu.</p>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "16px 0" }}>Nothing logged yet today — tap a meal below or browse the menu to get started.</p>
           ) : (
             todayLogs.map(m => <MealCard key={m.meal_id} meal={m} onDelete={handleDeleteLog} deletingLogId={deletingLogId} />)
           )}
           {!loading && unloggedMeals.length > 0 && (
             <>
-              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 16, marginBottom: 8 }}>Add a meal</div>
+              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 16, marginBottom: 8 }}>Add a meal</div>
               {unloggedMeals.map(meal => (
                 <button key={meal} onClick={() => onNav("menu")} aria-label={`Log ${meal}`} style={{ border: "1px dashed var(--border)", borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 8, width: "100%", background: "none" }}>
                   <div style={{ width: 40, height: 40, borderRadius: 14, background: "var(--bg-input)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{MEAL_ICONS[meal]}</div>
                   <div style={{ textAlign: "left" }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-dim)", textTransform: "capitalize" }}>{meal}</div>
-                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", marginTop: 2, opacity: 0.6 }}>+ TAP TO LOG</div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-secondary)", textTransform: "capitalize" }}>{meal} not logged yet</div>
+                    <div style={{ fontSize: 10, color: "var(--accent)", marginTop: 2, fontWeight: 600 }}>+ Tap to log</div>
                   </div>
                 </button>
               ))}
@@ -156,8 +156,8 @@ export default function MyLogPage({ onNav }) {
           )}
         </section>
 
-        <button onClick={() => onNav("menu")} style={{ width: "100%", padding: 14, borderRadius: 16, border: "1px solid var(--border-faint)", background: "var(--bg-input)", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)", fontFamily: "'Space Mono',monospace", letterSpacing: "0.05em" }}>
-          Browse menu to log more
+        <button onClick={() => onNav("menu")} style={{ width: "100%", padding: 14, borderRadius: 16, border: "1px solid var(--border)", background: "linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), color-mix(in srgb, var(--accent2) 6%, transparent))", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <span>Browse menu</span><span style={{ color: "var(--accent)" }}>{"→"}</span>
         </button>
       </div>
     </main>

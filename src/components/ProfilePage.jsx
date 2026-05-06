@@ -334,7 +334,7 @@ export default function ProfilePage({ onNav }) {
           <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: 16, borderRadius: 18, border: "none", cursor: saving ? "not-allowed" : "pointer", background: saving ? "var(--bg-input)" : "linear-gradient(135deg,var(--accent),var(--accent2))", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: saving ? "var(--text-muted)" : "var(--accent-contrast)", boxShadow: saving ? "none" : "0 8px 32px var(--accent)40", transition: "all 0.2s" }} aria-label="Save profile and recalculate targets">
             {saving ? "Saving..." : "Save & Recalculate Targets"}
           </button>
-          <button type="button" onClick={handleLogout} disabled={logoutLoading} aria-label="Sign out" style={{ width: "100%", padding: 16, borderRadius: 18, border: "none", cursor: logoutLoading ? "not-allowed" : "pointer", background: logoutLoading ? "var(--bg-input)" : "var(--danger)", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: logoutLoading ? "var(--text-muted)" : "#fff", boxShadow: logoutLoading ? "none" : "0 8px 32px var(--danger)40", transition: "all 0.2s", opacity: logoutLoading ? 0.8 : 1 }}>
+          <button type="button" onClick={handleLogout} disabled={logoutLoading} aria-label="Sign out" style={{ width: "100%", padding: "12px 16px", borderRadius: 18, border: "1px solid var(--danger-border)", cursor: logoutLoading ? "not-allowed" : "pointer", background: "transparent", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 14, color: logoutLoading ? "var(--text-dim)" : "var(--danger)", transition: "all 0.2s", opacity: logoutLoading ? 0.6 : 1 }}>
             {logoutLoading ? "Signing out..." : "Sign out"}
           </button>
         </div>

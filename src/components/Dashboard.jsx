@@ -1,7 +1,109 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useAuth } from "../auth.jsx";
-import { apiGet, apiDelete } from "../utils/api.js";
+import { apiGet, apiDelete, API_BASE } from "../utils/api.js";
 import { MEAL_ICONS, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, TODAY, TAG_COLOR } from "../utils/constants.js";
+
+// ── Dining Status Strip ──────────────────────────────────────────────
+// UW Madison hours: Breakfast 7–10:30, Lunch 11–3, Dinner 4:30–8
+const MEAL_WINDOWS = [
+  { meal: "breakfast", open: 7,    close: 10.5, label: "Breakfast",  icon: "🌅" },
+  { meal: "lunch",     open: 11,   close: 16,   label: "Lunch",      icon: "☀️" },
+  { meal: "dinner",    open: 16.5, close: 20,   label: "Dinner",     icon: "🌙" },
+];
+
+function DiningStatusStrip() {
+  const now = new Date();
+  const h = now.getHours() + now.getMinutes() / 60;
+  const current = MEAL_WINDOWS.find(w => h >= w.open && h < w.close);
+  const next    = MEAL_WINDOWS.find(w => h < w.open);
+
+  let label, color, bg, timeText;
+  if (current) {
+    const minsLeft = Math.round((current.close - h) * 60);
+    label    = `${current.icon} ${current.label} open`;
+    timeText = `${minsLeft}m left`;
+    color    = "var(--accent)";
+    bg       = "color-mix(in srgb, var(--accent) 8%, transparent)";
+  } else if (next) {
+    const minsUntil = Math.round((next.open - h) * 60);
+    label    = `${next.icon} ${next.label} opens in`;
+    timeText = `${minsUntil}m`;
+    color    = "var(--warning)";
+    bg       = "color-mix(in srgb, var(--warning) 10%, transparent)";
+  } else {
+    label    = "🌙 Dining closed";
+    timeText = "reopens 7 AM";
+    color    = "var(--text-dim)";
+    bg       = "var(--bg-input)";
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: bg, border: `1px solid ${color}25`, borderRadius: 14, padding: "10px 16px", marginBottom: 16 }}>
+      <span style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</span>
+      <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color, fontWeight: 700 }}>{timeText}</span>
+    </div>
+  );
+}
+
+// ── Water Tracker ────────────────────────────────────────────────────
+const WATER_KEY = `water_${TODAY}`;
+const GOAL_GLASSES = 8;
+
+function WaterTracker() {
+  const [glasses, setGlasses] = useState(() => {
+    try { return Math.min(GOAL_GLASSES, parseInt(localStorage.getItem(WATER_KEY) || "0", 10)) || 0; }
+    catch { return 0; }
+  });
+
+  const update = (next) => {
+    const n = Math.max(0, Math.min(GOAL_GLASSES, next));
+    setGlasses(n);
+    try { localStorage.setItem(WATER_KEY, String(n)); } catch {}
+  };
+
+  const pct = glasses / GOAL_GLASSES;
+  const done = glasses >= GOAL_GLASSES;
+
+  return (
+    <section style={{ marginBottom: 16 }}>
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 20, padding: "16px 18px", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, var(--accent2), transparent)`, opacity: 0.5 }} aria-hidden="true" />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18 }} aria-hidden="true">💧</span>
+            <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>Water</span>
+          </div>
+          <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: done ? "var(--accent)" : "var(--text-muted)" }}>
+            {glasses}/{GOAL_GLASSES} glasses{done ? " ✓" : ""}
+          </span>
+        </div>
+        {/* Glass dots */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          {Array.from({ length: GOAL_GLASSES }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => update(i < glasses ? i : i + 1)}
+              aria-label={i < glasses ? `Remove glass ${i + 1}` : `Add glass ${i + 1}`}
+              style={{ flex: 1, height: 28, borderRadius: 8, border: `2px solid ${i < glasses ? "var(--accent2)" : "var(--border-faint)"}`, background: i < glasses ? "color-mix(in srgb, var(--accent2) 20%, transparent)" : "transparent", cursor: "pointer", transition: "all 0.2s", padding: 0 }}
+            >
+              <span style={{ fontSize: 10 }}>{i < glasses ? "💧" : ""}</span>
+            </button>
+          ))}
+        </div>
+        {/* Progress bar */}
+        <div style={{ height: 4, background: "var(--border-faint)", borderRadius: 99, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct * 100}%`, background: "linear-gradient(90deg, var(--accent2), var(--accent))", borderRadius: 99, transition: "width 0.4s ease" }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
+          <button onClick={() => update(glasses - 1)} disabled={glasses === 0} aria-label="Remove one glass" style={{ flex: 1, padding: "8px 0", borderRadius: 12, border: "1px solid var(--border-faint)", background: "var(--bg-input)", cursor: glasses === 0 ? "not-allowed" : "pointer", fontSize: 16, color: glasses === 0 ? "var(--border-faint)" : "var(--text-muted)", opacity: glasses === 0 ? 0.4 : 1 }}>−</button>
+          <button onClick={() => update(glasses + 1)} disabled={done} aria-label="Add one glass" style={{ flex: 3, padding: "8px 0", borderRadius: 12, border: `1px solid ${done ? "var(--accent)40" : "var(--accent2)50"}`, background: done ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "color-mix(in srgb, var(--accent2) 12%, transparent)", cursor: done ? "default" : "pointer", fontSize: 13, fontWeight: 600, color: done ? "var(--accent)" : "var(--accent2)" }}>
+            {done ? "Goal reached! 🎉" : "+ Add glass"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 // ── Calorie Ring ────────────────────────────────────────────────────
 function CalorieRing({ consumed, goal }) {
@@ -31,18 +133,30 @@ function CalorieRing({ consumed, goal }) {
         )}
       </svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 32, fontWeight: 800, color: over ? "var(--danger)" : "var(--text-primary)", lineHeight: 1, letterSpacing: "-0.02em" }}>{consumed}</div>
-        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", marginTop: 4, letterSpacing: "0.05em" }}>/ {goal} kcal</div>
+        {consumed === 0 ? (
+          <>
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, color: "var(--text-dim)" }}>0</div>
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)", marginTop: 2, letterSpacing: "0.04em" }}>/ {goal} kcal</div>
+            <div style={{ fontSize: 9, color: "var(--text-dim)", marginTop: 6, textAlign: "center", lineHeight: 1.4, maxWidth: 70 }}>log a meal to start</div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 32, fontWeight: 800, color: over ? "var(--danger)" : "var(--text-primary)", lineHeight: 1, letterSpacing: "-0.02em" }}>{consumed}</div>
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", marginTop: 4, letterSpacing: "0.05em" }}>/ {goal} kcal</div>
+          </>
+        )}
       </div>
-      <div style={{ position: "absolute", top: 4, right: 4, width: 28, height: 28, borderRadius: "50%", background: `${gradeColor}20`, border: `2px solid ${gradeColor}`, display: "flex", alignItems: "center", justifyContent: "center", animation: pct >= 0.9 && !over ? "pulse-ring 2s infinite" : "none" }}>
-        <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 12, color: gradeColor }}>{over ? "!" : grade}</span>
-      </div>
+      {consumed > 0 && (
+        <div style={{ position: "absolute", top: 4, right: 4, width: 28, height: 28, borderRadius: "50%", background: `${gradeColor}20`, border: `2px solid ${gradeColor}`, display: "flex", alignItems: "center", justifyContent: "center", animation: pct >= 0.9 && !over ? "pulse-ring 2s infinite" : "none" }}>
+          <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 12, color: gradeColor }}>{over ? "!" : grade}</span>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Macro Progress Row ───────────────────────────────────────────────
-function MacroRow({ label, consumed, goal, color, delay }) {
+function MacroRow({ label, consumed, goal, color, delay, unit = "g" }) {
   const rawPct = goal > 0 ? (consumed / goal) * 100 : 0;
   const over = rawPct > 100;
   const barPct = Math.min(100, rawPct);
@@ -54,7 +168,7 @@ function MacroRow({ label, consumed, goal, color, delay }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
         <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</span>
         <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700, color: over ? "var(--danger)" : color }}>
-          {consumed}<span style={{ color: "var(--text-dim)", fontWeight: 400 }}>/{goal}g</span>
+          {consumed}<span style={{ color: "var(--text-dim)", fontWeight: 400 }}>/{goal}{unit}</span>
         </span>
       </div>
       <div style={{ height: 8, background: "var(--border-faint)", borderRadius: 99, overflow: "hidden", position: "relative" }} role="progressbar" aria-valuenow={consumed} aria-valuemax={goal} aria-label={label}>
@@ -63,7 +177,7 @@ function MacroRow({ label, consumed, goal, color, delay }) {
         </div>
       </div>
       <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: over ? "var(--danger)" : "var(--text-dim)", marginTop: 4, textAlign: "right" }}>
-        {over ? `+${Math.round(consumed - goal)}g over` : `${Math.round(rawPct)}%`}
+        {over ? `+${Math.round(consumed - goal)}${unit} over` : `${Math.round(rawPct)}%`}
       </div>
     </div>
   );
@@ -209,6 +323,8 @@ export default function Dashboard({ onNav }) {
   const [recsMeal, setRecsMeal]           = useState("");
   const [recsLoading, setRecsLoading]     = useState(true);
   const [showRecs, setShowRecs]           = useState(true);
+  const [recHall, setRecHall]             = useState("all");   // "all" = merge all halls
+  const [diningHalls, setDiningHalls]     = useState([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState("");
   const [deletingLogId, setDeletingLogId] = useState(null);
@@ -248,11 +364,22 @@ export default function Dashboard({ onNav }) {
     }).finally(() => { clearTimeout(timer); setLoading(false); });
   }, [token]);
 
+  // Fetch dining halls list once
   useEffect(() => {
+    fetch(`${API_BASE}/api/dining-halls`)
+      .then(r => r.json())
+      .then(d => setDiningHalls(d.dining_halls || []))
+      .catch(() => {});
+  }, []);
+
+  // Fetch recommendations whenever meal, hall selection, or token changes
+  useEffect(() => {
+    setRecsLoading(true);
     const h = new Date().getHours();
-    const meal = MEAL_FOR_RECOMMEND(h); // when closed, use next meal (breakfast) for recs
+    const meal = MEAL_FOR_RECOMMEND(h);
     setRecsMeal(meal);
-    apiGet(`/api/recommend?meal=${meal}`, token)
+    const hallParam = recHall !== "all" ? `&hall=${recHall}` : "";
+    apiGet(`/api/recommend?meal=${meal}${hallParam}`, token)
       .then(data => {
         const all = Object.entries(data.halls || {}).flatMap(([, items]) => items).filter(i => i.name?.trim());
         all.sort((a, b) => b.score - a.score);
@@ -261,7 +388,7 @@ export default function Dashboard({ onNav }) {
       })
       .catch(e => console.error("Recs load error:", e))
       .finally(() => setRecsLoading(false));
-  }, [token]);
+  }, [token, recHall]);
 
   const handleDeleteLog = async (logId) => {
     if (deletingLogId != null) return;
@@ -279,11 +406,12 @@ export default function Dashboard({ onNav }) {
     }
   };
 
-  const calGoal  = profile?.calorie_target || 2000;
-  const protGoal = profile?.protein_g      || 150;
-  const carbGoal = profile?.carbs_g        || 250;
-  const fatGoal  = profile?.fat_g          || 65;
-  const totals = { calories: todayTotals.calories || 0, g_protein: todayTotals.protein_g || 0, g_carbs: todayTotals.carbs_g || 0, g_fat: todayTotals.fat_g || 0 };
+  const calGoal     = profile?.calorie_target || 2000;
+  const protGoal    = profile?.protein_g      || 150;
+  const carbGoal    = profile?.carbs_g        || 250;
+  const fatGoal     = profile?.fat_g          || 65;
+  const sodiumGoal  = profile?.sodium_mg      || 2300;
+  const totals = { calories: todayTotals.calories || 0, g_protein: todayTotals.protein_g || 0, g_carbs: todayTotals.carbs_g || 0, g_fat: todayTotals.fat_g || 0, mg_sodium: todayTotals.sodium_mg || 0 };
   const displayName = profile?.display_name || user?.email?.split("@")[0] || "there";
   const goalLabel = profile?.goal ? profile.goal.replace("_", " ") : "maintain";
   const loggedMealTypes = new Set(todayLogs.map(m => m.meal_type));
@@ -305,6 +433,9 @@ export default function Dashboard({ onNav }) {
       <div style={{ padding: "0 22px", position: "relative", zIndex: 1 }}>
         {error && <div style={{ background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 14, padding: "11px 16px", fontSize: 13, color: "var(--danger)", marginBottom: 16 }} role="alert">{error}</div>}
 
+        {/* Dining hours status */}
+        <DiningStatusStrip />
+
         {/* Nutrition card */}
         <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 24, padding: "22px 20px", marginBottom: 16, position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent)", opacity: 0.6 }} aria-hidden="true" />
@@ -324,9 +455,10 @@ export default function Dashboard({ onNav }) {
               <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                 <CalorieRing consumed={totals.calories} goal={calGoal} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <MacroRow label="Protein" consumed={totals.g_protein} goal={protGoal} color="var(--protein)" delay={200} />
-                  <MacroRow label="Carbs"   consumed={totals.g_carbs}   goal={carbGoal} color="var(--carbs-color)" delay={350} />
-                  <MacroRow label="Fat"     consumed={totals.g_fat}     goal={fatGoal}  color="var(--fat-color)" delay={500} />
+                  <MacroRow label="Protein" consumed={totals.g_protein}  goal={protGoal}   color="var(--protein)"      delay={200} />
+                  <MacroRow label="Carbs"   consumed={totals.g_carbs}   goal={carbGoal}   color="var(--carbs-color)"  delay={350} />
+                  <MacroRow label="Fat"     consumed={totals.g_fat}     goal={fatGoal}    color="var(--fat-color)"    delay={500} />
+                  <MacroRow label="Sodium"  consumed={totals.mg_sodium} goal={sodiumGoal} color="var(--warning)"      delay={650} unit="mg" />
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-faint)" }}>
@@ -355,6 +487,9 @@ export default function Dashboard({ onNav }) {
         {/* Daily insights & nudges */}
         {!loading && <DailyInsights totals={totals} calGoal={calGoal} protGoal={protGoal} carbGoal={carbGoal} fatGoal={fatGoal} mealsLogged={todayLogs.length} onNav={onNav} />}
 
+        {/* Water tracker */}
+        <WaterTracker />
+
         {/* CTA button */}
         <button onClick={() => onNav("snap")} aria-label="Snap your meal" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))", borderRadius: 20, padding: "16px 20px", marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 8px 32px var(--accent)30", width: "100%", border: "none" }}>
           <div>
@@ -373,7 +508,7 @@ export default function Dashboard({ onNav }) {
           {loading ? (
             [0, 1].map(i => <div key={i} style={{ height: 64, borderRadius: 18, marginBottom: 10, background: "var(--bg-card)", backgroundImage: "linear-gradient(90deg,transparent,var(--border-faint),transparent)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />)
           ) : todayLogs.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-dim)", padding: "8px 0 12px" }}>Nothing logged yet today.</p>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 0 12px" }}>Nothing logged yet today — start by snapping a meal or browsing the menu.</p>
           ) : (
             todayLogs.map(m => <MealCard key={m.meal_id} meal={m} onDelete={handleDeleteLog} deletingLogId={deletingLogId} />)
           )}
@@ -381,31 +516,51 @@ export default function Dashboard({ onNav }) {
             <button key={meal} onClick={() => onNav("snap")} aria-label={`Log ${meal}`} style={{ border: "1px dashed var(--border)", borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: 8, width: "100%", background: "none" }}>
               <div style={{ width: 40, height: 40, borderRadius: 14, background: "var(--bg-input)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{MEAL_ICONS[meal]}</div>
               <div style={{ textAlign: "left" }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-dim)", textTransform: "capitalize" }}>{meal} not logged yet</div>
-                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", marginTop: 2, opacity: 0.6 }}>+ TAP TO LOG</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-secondary)", textTransform: "capitalize" }}>{meal} not logged yet</div>
+                <div style={{ fontSize: 10, color: "var(--accent)", marginTop: 2, fontWeight: 600, letterSpacing: "0.04em" }}>+ Tap to log</div>
               </div>
             </button>
           ))}
         </section>
 
-        {/* Recommendations — dropdown arrow to show/hide list */}
+        {/* Recommendations */}
         <section style={{ marginBottom: 24 }}>
+          {/* Collapsible header */}
           <button
             onClick={() => setShowRecs(s => !s)}
             aria-expanded={showRecs}
             aria-label={showRecs ? "Collapse recommendations" : "Expand recommendations"}
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", width: "100%", padding: 0, marginBottom: showRecs ? 12 : 0, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: 0, marginBottom: 10, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
           >
-            <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 17, color: "var(--text-primary)", margin: 0 }}>Recommended <span style={{ color: "var(--accent)" }}>{recsMeal || "today"}</span>{MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" ? " (next)" : ""}</h2>
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", textTransform: "uppercase" }}>{recsMeal} {"\u00B7"} All Halls</span>
-              <span style={{ color: "var(--text-dim)", fontSize: 14, transition: "transform 0.2s", transform: showRecs ? "rotate(0deg)" : "rotate(-90deg)" }} aria-hidden="true">{"\u25BC"}</span>
-            </span>
+            <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 17, color: "var(--text-primary)", margin: 0 }}>
+              Picks for <span style={{ color: "var(--accent)" }}>{recsMeal || "today"}</span>{MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" ? " (next)" : ""}
+            </h2>
+            <span style={{ color: "var(--text-dim)", fontSize: 14, transition: "transform 0.2s", transform: showRecs ? "rotate(0deg)" : "rotate(-90deg)", flexShrink: 0, marginLeft: 8 }} aria-hidden="true">{"▼"}</span>
           </button>
+
+          {/* Hall picker chips */}
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, WebkitOverflowScrolling: "touch" }}>
+            {[{ id: "all", shortName: "All halls" }, ...diningHalls].map(h => (
+              <button
+                key={h.id}
+                onClick={() => setRecHall(h.id)}
+                aria-pressed={recHall === h.id}
+                style={{
+                  flexShrink: 0, padding: "5px 12px", borderRadius: 99, cursor: "pointer",
+                  background: recHall === h.id ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "var(--bg-input)",
+                  border: `1.5px solid ${recHall === h.id ? "var(--accent)" : "var(--border-faint)"}`,
+                  fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.05em",
+                  color: recHall === h.id ? "var(--accent)" : "var(--text-muted)",
+                  fontWeight: recHall === h.id ? 700 : 400, transition: "all 0.2s",
+                }}
+              >{h.shortName}</button>
+            ))}
+          </div>
+
           {showRecs && (
             <>
               {recsRemaining && (
-                <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
                   You need <span style={{ color: "var(--protein)" }}>{recsRemaining.protein_g}g more protein</span> and <span style={{ color: "var(--cal-color)" }}>{recsRemaining.calories} kcal</span> today.
                 </p>
               )}
@@ -418,10 +573,12 @@ export default function Dashboard({ onNav }) {
               ) : (
                 <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }} role="list">
                   {recs.map(item => (
-                    <div key={item.food_id} role="listitem" style={{ flexShrink: 0, width: 160, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, padding: 14, cursor: "pointer", position: "relative" }}>
-                      {item.is_saved && <div style={{ position: "absolute", top: 10, right: 10, fontSize: 12 }} aria-label="Saved">🔖</div>}
-                      <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 4, lineHeight: 1.3, paddingRight: item.is_saved ? 16 : 0 }}>{item.name}</div>
-                      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 8 }}>{item.station}</div>
+                    <div key={item.food_id} role="listitem" style={{ flexShrink: 0, width: 200, background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 18, padding: 14, cursor: "pointer", position: "relative" }}>
+                      {/* Score badge */}
+                      <div style={{ position: "absolute", top: 10, right: 10, fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 12%, transparent)", padding: "2px 7px", borderRadius: 99, border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)" }}>{Math.round(item.score)}% fit</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 3, lineHeight: 1.3, paddingRight: 44, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.name}</div>
+                      {/* Hall name */}
+                      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent2)", marginBottom: 4, letterSpacing: "0.04em" }}>{item.hall_name || item.station || ""}</div>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
                         {(item.food_tags || []).map(t => <span key={t} style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: TAG_COLOR[t] || "var(--text-secondary)", background: `${TAG_COLOR[t] || "#94a3b8"}15`, padding: "2px 7px", borderRadius: 99 }}>{t}</span>)}
                       </div>

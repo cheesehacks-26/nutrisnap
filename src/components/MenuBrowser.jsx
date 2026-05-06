@@ -14,10 +14,11 @@ function useDebounce(value, delay) {
 
 const DIET_TAGS = ["Vegan", "Vegetarian", "Halal", "Gluten-Free", "Dairy-Free", "Egg-Free", "Soy-Free"];
 const SORT_OPTIONS = [
-  { key: "default",   label: "Default"   },
-  { key: "cal_asc",   label: "Cal \u2191"     },
-  { key: "cal_desc",  label: "Cal \u2193"     },
-  { key: "protein",   label: "Protein \u2191" },
+  { key: "default",   label: "Default"      },
+  { key: "cal_asc",   label: "Cal \u2191"       },
+  { key: "cal_desc",  label: "Cal \u2193"       },
+  { key: "protein",   label: "Protein \u2191"   },
+  { key: "efficiency", label: "P/Cal \u2191"    },
 ];
 
 // â”€â”€ Food Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -74,7 +75,9 @@ function FoodCard({ item, saved, servings, logging, removing, onServingsChange, 
             ))}
           </div>
           {(nutrition.mg_sodium || 0) > 700 && (
-            <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>{"\u26A0\uFE0F"} High sodium: {nutrition.mg_sodium}mg</div>
+            <div style={{ fontSize: 12, color: "var(--danger)", background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 10, padding: "7px 12px", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <span aria-hidden="true">{"\u26A0\uFE0F"}</span> High sodium: {nutrition.mg_sodium}mg
+            </div>
           )}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
             <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Servings</span>
@@ -163,32 +166,32 @@ function BYOCard({ item, onSave, saved, logging }) {
   if (!byo_components) return null;
 
   return (
-    <div style={{ background: expanded ? "var(--bg-surface)" : "linear-gradient(135deg,rgba(168,85,247,0.06),rgba(0,245,160,0.04))", border: `1px solid ${expanded ? "rgba(168,85,247,0.25)" : "rgba(168,85,247,0.12)"}`, borderRadius: 18, marginBottom: 10, overflow: "hidden", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}>
+    <div style={{ background: expanded ? "var(--bg-surface)" : "color-mix(in srgb, var(--byo-color) 5%, transparent)", border: `1px solid color-mix(in srgb, var(--byo-color) ${expanded ? 25 : 12}%, transparent)`, borderRadius: 18, marginBottom: 10, overflow: "hidden", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)" }}>
       <button onClick={() => setExpanded(e => !e)} aria-expanded={expanded} style={{ display: "flex", alignItems: "center", padding: "14px 16px", cursor: "pointer", gap: 12, width: "100%", background: "none", border: "none", textAlign: "left" }}>
-        <div style={{ width: 22, height: 22, borderRadius: 8, flexShrink: 0, background: "linear-gradient(135deg,#a855f7,#00f5a0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }} aria-hidden="true">{"\uD83D\uDEE0"}</div>
+        <div style={{ width: 22, height: 22, borderRadius: 8, flexShrink: 0, background: "linear-gradient(135deg, var(--byo-color), var(--accent))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }} aria-hidden="true">{"\uD83D\uDEE0"}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "#a78bfa", marginTop: 2 }}>{STATION_ICONS[station]} {station} · {byo_components.reduce((n, c) => n + c.items.length, 0)} options</div>
+          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--byo-color)", marginTop: 2 }}>{STATION_ICONS[station]} {station} · {byo_components.reduce((n, c) => n + c.items.length, 0)} options</div>
         </div>
         {entries.length > 0 ? (
           <div style={{ textAlign: "right", flexShrink: 0 }}>
             <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 15, fontWeight: 700, color: "var(--cal-color)" }}>{Math.round(totals.calories)}</div>
-            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "#a78bfa" }}>{entries.length} picked{localServings !== 1 ? ` \u00B7 ${localServings}\u00D7` : ""}</div>
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--byo-color)" }}>{entries.length} picked{localServings !== 1 ? ` \u00B7 ${localServings}\u00D7` : ""}</div>
           </div>
         ) : (
-          <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "#a78bfa", background: "rgba(168,85,247,0.12)", padding: "3px 10px", borderRadius: 99, flexShrink: 0 }}>BUILD</span>
+          <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--byo-color)", background: "color-mix(in srgb, var(--byo-color) 12%, transparent)", padding: "3px 10px", borderRadius: 99, flexShrink: 0 }}>BUILD</span>
         )}
-        <span style={{ color: "#a78bfa", fontSize: 12, flexShrink: 0, transition: "transform 0.3s", transform: expanded ? "rotate(180deg)" : "none" }} aria-hidden="true">{"\u25BC"}</span>
+        <span style={{ color: "var(--byo-color)", fontSize: 12, flexShrink: 0, transition: "transform 0.3s", transform: expanded ? "rotate(180deg)" : "none" }} aria-hidden="true">{"\u25BC"}</span>
       </button>
 
       {expanded && (
-        <div style={{ padding: "0 16px 16px", borderTop: "1px solid rgba(168,85,247,0.1)", animation: "fadeIn 0.2s ease" }}>
+        <div style={{ padding: "0 16px 16px", borderTop: "1px solid color-mix(in srgb, var(--byo-color) 10%, transparent)", animation: "fadeIn 0.2s ease" }}>
           {byo_components.map((cat, ci) => (
             <div key={ci} style={{ marginTop: 14 }}>
-              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "#a78bfa", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ height: 1, flex: 1, background: "rgba(168,85,247,0.15)" }} />
+              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--byo-color)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ height: 1, flex: 1, background: "color-mix(in srgb, var(--byo-color) 15%, transparent)" }} />
                 {cat.label}
-                <div style={{ height: 1, flex: 1, background: "rgba(168,85,247,0.15)" }} />
+                <div style={{ height: 1, flex: 1, background: "color-mix(in srgb, var(--byo-color) 15%, transparent)" }} />
               </div>
               {cat.items.map((sub, si) => {
                 const key = `${ci}-${si}`;
@@ -337,7 +340,8 @@ export default function MenuBrowser({ onNav }) {
 
   const buildMenuUrl = useCallback(() => {
     const params = new URLSearchParams({ hall: selectedHall, meal: mealType });
-    if (sortKey !== "default") params.set("sort", sortKey);
+    // efficiency sort is client-side only; don't confuse the API
+    if (sortKey !== "default" && sortKey !== "efficiency") params.set("sort", sortKey);
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     if (selectedStation !== "All") params.set("station", selectedStation);
     if (activeTags.length) params.set("tags", activeTags.join(","));
@@ -458,7 +462,13 @@ export default function MenuBrowser({ onNav }) {
     }
   };
 
-  const displayItems = menuItems;
+  // Client-side protein efficiency sort (g protein per 100 kcal)
+  const displayItems = sortKey === "efficiency"
+    ? [...menuItems].sort((a, b) => {
+        const eff = i => i.nutrition.calories > 0 ? (i.nutrition.g_protein / i.nutrition.calories) * 100 : 0;
+        return eff(b) - eff(a);
+      })
+    : menuItems;
 
   const savedCount = savedFoodIds.size;
   const totalCal = menuItems
@@ -507,7 +517,7 @@ export default function MenuBrowser({ onNav }) {
 
         {/* Diet filters row */}
         <div style={{ marginBottom: 6 }}>
-          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>Dietary</div>
+          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Dietary</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {DIET_TAGS.map(tag => { const a = activeTags.includes(tag), s = TAG_STYLE[tag]; return (
               <button key={tag} onClick={() => toggleTag(tag)} aria-pressed={a} style={{ flexShrink: 0, padding: "5px 12px", borderRadius: 99, cursor: "pointer", background: a ? s.bg : "var(--bg-input)", border: `2px solid ${a ? s.color : "var(--border-faint)"}`, fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.06em", fontWeight: a ? 700 : 400, color: a ? s.color : "var(--text-muted)", transition: "all 0.2s", boxShadow: a ? `0 0 0 2px ${s.color}25` : "none" }}>{a ? "\u2713 " : ""}{tag}</button>
@@ -517,7 +527,7 @@ export default function MenuBrowser({ onNav }) {
 
         {/* Sort row */}
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>Sort by</div>
+          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Sort by</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {SORT_OPTIONS.map(opt => (
               <button key={opt.key} onClick={() => setSortKey(opt.key)} aria-pressed={sortKey === opt.key} style={{ flexShrink: 0, padding: "5px 12px", borderRadius: 99, cursor: "pointer", background: sortKey === opt.key ? "color-mix(in srgb,var(--protein) 18%,transparent)" : "var(--bg-input)", border: `2px solid ${sortKey === opt.key ? "var(--protein)" : "var(--border-faint)"}`, fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.06em", fontWeight: sortKey === opt.key ? 700 : 400, color: sortKey === opt.key ? "var(--protein)" : "var(--text-muted)", transition: "all 0.2s", boxShadow: sortKey === opt.key ? "0 0 0 2px var(--protein)20" : "none" }}>{opt.label}</button>
@@ -556,7 +566,7 @@ export default function MenuBrowser({ onNav }) {
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: 0, marginBottom: showRecs ? (MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" ? 4 : 10) : 0, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
           >
             <div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>{"\u2022"} Recommended <span style={{ color: "var(--accent)" }}>for you</span></div>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15 }}>Recommended <span style={{ color: "var(--accent)" }}>for you</span></div>
               {MEAL_FOR_HOUR(new Date().getHours()) === "CLOSED" && <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>Dining closed — showing next: {effectiveMealForRecs}</div>}
             </div>
             <span style={{ color: "var(--text-dim)", fontSize: 14, transition: "transform 0.2s", transform: showRecs ? "rotate(0deg)" : "rotate(-90deg)" }} aria-hidden="true">{"\u25BC"}</span>
@@ -567,10 +577,10 @@ export default function MenuBrowser({ onNav }) {
                 {recsLoading ? [0, 1, 2].map(i => (
                   <div key={i} style={{ flexShrink: 0, width: 148, height: 110, borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border-faint)", backgroundImage: "linear-gradient(90deg,transparent 0%,var(--border-faint) 50%,transparent 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
                 )) : recs.map(item => (
-                  <button key={item.food_id} onClick={() => { setSearchQuery(item.name); setSelectedStation("All"); setActiveTags([]); setSortKey("default"); setShowRecs(false); }} style={{ flexShrink: 0, width: 148, background: "var(--accent)04", border: "1px solid var(--accent)15", borderRadius: 16, padding: 12, cursor: "pointer", position: "relative", transition: "border-color 0.2s", textAlign: "left" }}>
-                    <div style={{ position: "absolute", top: 8, right: 8, fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", background: "var(--accent)10", padding: "2px 6px", borderRadius: 99 }}>{Math.round(item.score * 100)}pts</div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", lineHeight: 1.3, marginBottom: 4, paddingRight: 32, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name ?? ""}</div>
-                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 8 }}>{item.station ?? ""}</div>
+                  <button key={item.food_id} onClick={() => { setSearchQuery(item.name); setSelectedStation("All"); setActiveTags([]); setSortKey("default"); setShowRecs(false); }} style={{ flexShrink: 0, width: 160, background: "var(--accent)04", border: "1px solid var(--accent)15", borderRadius: 16, padding: 12, cursor: "pointer", position: "relative", transition: "border-color 0.2s", textAlign: "left" }}>
+                    <div style={{ position: "absolute", top: 8, right: 8, fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", background: "var(--accent)10", padding: "2px 6px", borderRadius: 99 }}>{Math.round(item.score)}% fit</div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", lineHeight: 1.3, marginBottom: 2, paddingRight: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.name ?? ""}</div>
+                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", marginBottom: 6, letterSpacing: "0.04em" }}>{item.hall_name ?? item.station ?? ""}</div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <div><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--cal-color)" }}>{item.nutrition?.calories ?? "—"}</span><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}> kcal</span></div>
                       <div><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: "var(--protein)" }}>{item.nutrition?.g_protein ?? "—"}g</span><span style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--text-dim)" }}> pro</span></div>
