@@ -32,10 +32,15 @@ export const MAX_SERVINGS = 99;
 export const MEAL_FOR_HOUR = (h) =>
   h < 7 ? "CLOSED" : h < 10 ? "breakfast" : h < 11 ? "CLOSED" : h < 14 ? "lunch" : h < 16 ? "CLOSED" : h < 20 ? "dinner" : "CLOSED";
 
-// When dining is closed, return the next open meal for recommendations (breakfast).
+// Return the next upcoming meal when dining is currently closed.
+// Looks ahead through the day; wraps to breakfast if past dinner.
 export const MEAL_FOR_RECOMMEND = (h) => {
   const meal = MEAL_FOR_HOUR(h);
-  return meal === "CLOSED" ? "breakfast" : meal;
+  if (meal !== "CLOSED") return meal;
+  if (h < 7)  return "breakfast"; // pre-dawn → breakfast next
+  if (h < 11) return "lunch";     // post-breakfast gap → lunch next
+  if (h < 16) return "dinner";    // post-lunch gap → dinner next
+  return "breakfast";             // post-dinner → breakfast tomorrow
 };
 
 export const TODAY = new Date().toISOString().slice(0, 10);

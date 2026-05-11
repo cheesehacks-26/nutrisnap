@@ -5,7 +5,7 @@ export const useTheme = () => useContext(ThemeContext);
 
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(() => {
-    try { return localStorage.getItem("ns_theme") === "dark"; } catch { return false; }
+    try { return localStorage.getItem("ns_theme") !== "light"; } catch { return true; }
   });
 
   useLayoutEffect(() => {
