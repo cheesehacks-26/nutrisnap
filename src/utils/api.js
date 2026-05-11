@@ -31,6 +31,16 @@ export async function apiPost(path, token, body) {
   return r.json();
 }
 
+export async function apiPatch(path, token, body) {
+  const r = await fetch(`${API_BASE}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) await handleResponse(r);
+  return r.json();
+}
+
 export async function apiDelete(path, token) {
   const r = await fetch(`${API_BASE}${path}`, {
     method: "DELETE",
