@@ -124,29 +124,13 @@ button, input, select, textarea {
   .profile-page .profile-targets-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
-/* Profile: full-width two-column layout + compact so it fits one page on big screens */
-@media (min-width: 900px) {
-  .profile-page .profile-header { padding: 32px 20px 16px; }
-  .profile-page .profile-header h1 { font-size: 22px; }
-  .profile-page .profile-header p { font-size: 12px; margin-top: 4px; }
-  .profile-page .profile-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    align-items: start;
-    max-width: none !important;
-    padding: 0 20px 20px;
+/* Profile: lock to full viewport height — no scroll on desktop */
+@media (min-width: 768px) {
+  .app-content .profile-page {
+    height: 100dvh;
+    overflow: hidden;
+    padding-bottom: 0 !important;
   }
-  .profile-page .profile-content > .profile-col-left,
-  .profile-page .profile-content > .profile-col-right { max-width: none; }
-  .profile-page .profile-card {
-    padding: 14px 16px;
-    margin-bottom: 14px;
-    border-radius: 16px;
-  }
-  .profile-page .profile-card .profile-section-title { margin-bottom: 10px; }
-  .profile-page .profile-actions { gap: 8px; }
-  .profile-page .profile-actions button { padding: 12px 16px; font-size: 14px; }
 }
 
 /* Snap and My Log: constrain to a comfortable column on wide screens */

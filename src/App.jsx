@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import "./App.css";
 import { AuthProvider, AuthGate } from "./auth.jsx";
 import { ThemeProvider } from "./utils/theme.jsx";
@@ -84,27 +84,35 @@ function SidebarNav({ active, onNav }) {
 
 export default function App() {
   const [page, setPage] = useState("home");
+  const [navParams, setNavParams] = useState({});
 
-  const pages = {
-    home:    <Dashboard   onNav={setPage} />,
-    snap:    <SnapPage    onNav={setPage} />,
-    menu:    <MenuBrowser onNav={setPage} />,
-    log:     <MyLogPage   onNav={setPage} />,
-    analysis: <Trends />,
-    profile: <ProfilePage onNav={setPage} />,
-  };
+  // Accepts either a string ("menu") or an object ({ page: "menu", params: { hall, search } })
+  const navigate = useCallback((target) => {
+    if (typeof target === "string") {
+      setPage(target);
+      setNavParams({});
+    } else {
+      setPage(target.page);
+      setNavParams(target.params || {});
+    }
+  }, []);
 
   return (
     <ThemeProvider>
       <AuthProvider>
         <div className="app-root">
           <AuthGate>
-            <SidebarNav active={page} onNav={setPage} />
+            <SidebarNav active={page} onNav={navigate} />
             <div className="app-content">
               <div key={page} className={"app-page" + (page === "profile" ? " app-page--profile" : "")}>
-                {pages[page]}
+                {page === "home"     && <Dashboard   onNav={navigate} />}
+                {page === "snap"     && <SnapPage    onNav={navigate} />}
+                {page === "menu"     && <MenuBrowser onNav={navigate} initialHall={navParams.hall} initialSearch={navParams.search} />}
+                {page === "log"      && <MyLogPage   onNav={navigate} />}
+                {page === "analysis" && <Trends />}
+                {page === "profile"  && <ProfilePage onNav={navigate} />}
               </div>
-              <BottomNav active={page} onNav={setPage} />
+              <BottomNav active={page} onNav={navigate} />
             </div>
           </AuthGate>
         </div>
