@@ -90,6 +90,8 @@ export default function SnapPage({ onNav }) {
   const streamRef   = useRef(null);
   const fileInputRef = useRef(null);
 
+  useEffect(() => { document.title = "NutriSnap — Snap"; }, []);
+
   // Load dining halls
   useEffect(() => {
     fetch(`${API_BASE}/api/dining-halls`)
@@ -214,7 +216,7 @@ export default function SnapPage({ onNav }) {
       setConfirmed(p => ({ ...p, [key]: item }));
       setLoggedCalories(calories);
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 1500);
+      setTimeout(() => setShowSuccess(false), 3000);
     } catch (e) {
       console.error("Log error:", e);
       setLogError("Failed to log. Please try again.");
@@ -451,21 +453,26 @@ export default function SnapPage({ onNav }) {
         </div>
       )}
 
-      {/* Success overlay */}
+      {/* Success toast */}
       {showSuccess && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--bg)", backdropFilter: "blur(20px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "fadeSlideUp 0.3s ease" }} role="alert" aria-live="assertive">
-          <div style={{ fontSize: 72, animation: "waveIn 0.5s cubic-bezier(0.34,1.56,0.64,1)", marginBottom: 20 }} aria-hidden="true">{"\u2705"}</div>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 28, color: "var(--text-primary)", marginBottom: 8 }}>Logged!</div>
-          <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, color: "var(--text-dim)", letterSpacing: "0.08em" }}>DIARY UPDATED</div>
-          <div style={{ marginTop: 32, padding: "14px 28px", borderRadius: 16, background: "var(--accent)08", border: "1px solid var(--accent)30", fontSize: 13, color: "var(--accent)" }}>
-            {loggedCalories} kcal added today
+        <div
+          role="alert"
+          aria-live="assertive"
+          style={{ position: "fixed", bottom: 90, left: 16, right: 16, zIndex: 200, animation: "fadeSlideUp 0.25s ease" }}
+        >
+          <div style={{ background: "var(--bg-surface)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)", borderRadius: 18, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px color-mix(in srgb, var(--accent) 20%, transparent)" }}>
+            <span style={{ fontSize: 22, flexShrink: 0 }} aria-hidden="true">\u2705</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>Logged!</div>
+              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--accent)", marginTop: 1 }}>{loggedCalories} kcal added</div>
+            </div>
+            <button
+              onClick={() => { setShowSuccess(false); onNav("log"); }}
+              style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-input)", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", cursor: "pointer" }}
+            >
+              View log \u2192
+            </button>
           </div>
-          <button
-            onClick={() => { setShowSuccess(false); onNav("log"); }}
-            style={{ marginTop: 20, padding: "12px 28px", borderRadius: 14, border: "1px solid var(--border)", background: "var(--bg-input)", fontSize: 13, color: "var(--text-secondary)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}
-          >
-            View My Log {"\u2192"}
-          </button>
         </div>
       )}
     </main>

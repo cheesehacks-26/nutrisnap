@@ -3,6 +3,7 @@ import { useAuth } from "../auth.jsx";
 import { apiGet } from "../utils/api.js";
 
 const CH = 160, CW = 340, PL = 36, PB = 28, PR = 12, PT = 16, IW = CW - PL - PR, IH = CH - PT - PB;
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const xp = (i, len) => PL + (i / Math.max(len - 1, 1)) * IW;
 const yp = (v, m) => PT + IH - (v / m) * IH;
 
@@ -97,8 +98,9 @@ export default function Trends() {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState("");
 
-  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const todayStr = new Date().toISOString().slice(0, 10);
+
+  useEffect(() => { document.title = "NutriSnap — Analysis"; }, []);
 
   useEffect(() => {
     apiGet("/api/history?days=7", token)
@@ -154,7 +156,12 @@ export default function Trends() {
     { key: "g_fat",     label: "Fat",     color: "var(--fat-color)",   goal: goalsT.g_fat,     max: Math.max(goalsT.g_fat     * 1.2, 100) },
   ];
 
-  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  // Stable seed derived from today's date so the pick is consistent within a day
+  const daySeed = useMemo(() => {
+    const d = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    return parseInt(d, 10) % 997;
+  }, []);
+  const pick = (arr) => arr[daySeed % arr.length];
   const N = ({ v, c }) => <span style={{ fontFamily: "'Space Mono',monospace", fontWeight: 700, color: c }}>{v}</span>;
 
   const writtenSummary = useMemo(() => {
