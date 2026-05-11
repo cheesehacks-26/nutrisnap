@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../auth.jsx";
 import { apiGet, apiPost, apiDelete, API_BASE } from "../utils/api.js";
-import { TAG_STYLE, STATION_ICONS, CAT_COLOR, TODAY, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, MAX_SERVINGS, PROFILE_TO_MENU_TAG } from "../utils/constants.js";
+import { TAG_STYLE, STATION_ICONS, CAT_COLOR, MEAL_FOR_HOUR, MEAL_FOR_RECOMMEND, MAX_SERVINGS, PROFILE_TO_MENU_TAG } from "../utils/constants.js";
 
 function useDebounce(value, delay) {
   const [debounced, setDebounced] = useState(value);
@@ -22,12 +22,11 @@ const SORT_OPTIONS = [
 ];
 
 // â”€â”€ Food Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function FoodCard({ item, saved, servings, logging, removing, onServingsChange, onSave, onRemove }) {
+function RegularFoodCard({ item, saved, servings, logging, removing, onServingsChange, onSave, onRemove }) {
   const [expanded, setExpanded] = useState(false);
-  const { name, station, food_category, serving_size, nutrition = {}, food_tags = [] } = item;
-  if (item.is_build_your_own && item.byo_components) return <BYOCard item={item} onSave={onSave} saved={saved} logging={logging} />;
   const [localServings, setLocalServings] = useState(servings || 1);
   useEffect(() => { setLocalServings(servings || 1); }, [servings]);
+  const { name, station, food_category, serving_size, nutrition = {}, food_tags = [] } = item;
   const updateServings = (next) => {
     const clamped = Math.max(0.5, Math.min(MAX_SERVINGS, Math.round(next * 2) / 2));
     setLocalServings(clamped);
@@ -92,14 +91,22 @@ function FoodCard({ item, saved, servings, logging, removing, onServingsChange, 
               {removing ? "Removing..." : "Remove from log"}
             </button>
           ) : (
-            <button onClick={e => { e.stopPropagation(); onSave(item.food_id, localServings); }} disabled={logging} aria-pressed={false} style={{ width: "100%", padding: 12, borderRadius: 14, border: "1.75px solid var(--border)", cursor: logging ? "not-allowed" : "pointer", background: "var(--bg-input)", fontWeight: 700, fontSize: 13, color: "var(--text-secondary)", transition: "all 0.25s ease", boxShadow: "none", opacity: logging ? 0.9 : 1 }}>
-              {logging ? "Logging..." : <>Log {localServings}{"\u00D7"}</>}
+            <button onClick={e => { e.stopPropagation(); onSave(item.food_id, localServings); }} disabled={logging} aria-pressed={false} style={{ width: "100%", padding: 12, borderRadius: 14, border: "1.75px solid var(--border)", cursor: logging ? "not-allowed" : "pointer", background: "var(--bg-input)", fontWeight: 700, fontSize: 13, color: "var(--text-secondary)", transition: "all 0.25s ease", boxShadow: "none", opacity: logging ? 0.9 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              {logging ? (<><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "spin 0.7s linear infinite", flexShrink: 0 }}><circle cx="12" cy="12" r="10" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>Logging\u2026</>) : <>Log {localServings}{"\u00D7"}</>}
             </button>
           )}
         </div>
       )}
     </div>
   );
+}
+
+// Routes to BYOCard or RegularFoodCard — no hooks here to avoid Rules of Hooks violation
+function FoodCard(props) {
+  if (props.item.is_build_your_own && props.item.byo_components) {
+    return <BYOCard item={props.item} onSave={props.onSave} saved={props.saved} logging={props.logging} />;
+  }
+  return <RegularFoodCard {...props} />;
 }
 
 // ── Build Your Own Card ──────────────────────────────────────────
@@ -203,11 +210,11 @@ function BYOCard({ item, onSave, saved, logging }) {
                   <div key={si} style={{ marginBottom: 4 }}>
                     <button onClick={() => toggle(ci, si)}
                       style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: active ? "12px 12px 0 0" : 12, cursor: "pointer", width: "100%", textAlign: "left",
-                        background: active ? "rgba(0,245,160,0.08)" : "var(--bg-card)",
-                        border: `1px solid ${active ? "rgba(0,245,160,0.25)" : "var(--border-faint)"}`,
+                        background: active ? "color-mix(in srgb, var(--accent) 8%, transparent)" : "var(--bg-card)",
+                        border: `1px solid ${active ? "color-mix(in srgb, var(--accent) 25%, transparent)" : "var(--border-faint)"}`,
                         borderBottom: active ? "none" : undefined,
                         transition: "all 0.2s" }}>
-                      <div style={{ width: 18, height: 18, borderRadius: 6, border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: active ? "rgba(0,245,160,0.15)" : "transparent", transition: "all 0.2s" }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 6, border: `2px solid ${active ? "var(--accent)" : "var(--border)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: active ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "transparent", transition: "all 0.2s" }}>
                         {active && <span style={{ color: "var(--accent)", fontSize: 11, fontWeight: 700 }}>{"\u2713"}</span>}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -220,7 +227,7 @@ function BYOCard({ item, onSave, saved, logging }) {
                       </div>
                     </button>
                     {active && (
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px", background: "rgba(0,245,160,0.05)", border: "1px solid rgba(0,245,160,0.25)", borderTop: "none", borderRadius: "0 0 12px 12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px", background: "color-mix(in srgb, var(--accent) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)", borderTop: "none", borderRadius: "0 0 12px 12px" }}>
                         <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)" }}>Qty</span>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <button onClick={(e) => setQty(key, -1, e)} disabled={qty <= 1} aria-label={`Decrease ${sub.name}`} style={{ background: "none", border: "none", color: qty <= 1 ? "var(--border-faint)" : "var(--text-muted)", cursor: qty <= 1 ? "default" : "pointer", fontSize: 14, lineHeight: 1, padding: "0 4px" }}>{"\u2212"}</button>
@@ -236,7 +243,7 @@ function BYOCard({ item, onSave, saved, logging }) {
           ))}
 
           {entries.length > 0 && (
-            <div style={{ marginTop: 16, background: "rgba(0,245,160,0.04)", border: "1px solid rgba(0,245,160,0.15)", borderRadius: 14, padding: 12 }}>
+            <div style={{ marginTop: 16, background: "color-mix(in srgb, var(--accent) 4%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 15%, transparent)", borderRadius: 14, padding: 12 }}>
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>YOUR BUILD TOTAL</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                 {[
@@ -279,19 +286,19 @@ function BYOCard({ item, onSave, saved, logging }) {
 
 
 // â”€â”€ Menu Browser Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-export default function MenuBrowser({ onNav }) {
+export default function MenuBrowser({ onNav, initialHall, initialSearch }) {
   const { token } = useAuth();
   const [selectedStation, setSelectedStation] = useState("All");
   const [activeTags, setActiveTags]           = useState([]);
   const [profileSynced, setProfileSynced]     = useState(false);
   const [sortKey, setSortKey]                 = useState("default");
-  const [searchQuery, setSearchQuery]         = useState("");
+  const [searchQuery, setSearchQuery]         = useState(initialSearch || "");
   const [mealType, setMealType]               = useState(() => { const h = new Date().getHours(); return MEAL_FOR_RECOMMEND(h); });
   const [recs, setRecs]                       = useState([]);
   const [recsLoading, setRecsLoading]         = useState(true);
   const [showRecs, setShowRecs]               = useState(true);
   const [diningHalls, setDiningHalls]         = useState([]);
-  const [selectedHall, setSelectedHall]       = useState("gordon-avenue-market");
+  const [selectedHall, setSelectedHall]       = useState(initialHall || "gordon-avenue-market");
   const [showHallPicker, setShowHallPicker]   = useState(false);
   const [menuItems, setMenuItems]             = useState([]);
   const [menuLoading, setMenuLoading]         = useState(true);
@@ -302,6 +309,8 @@ export default function MenuBrowser({ onNav }) {
   const [removingIds, setRemovingIds]         = useState(new Set());
   const [stations, setStations]              = useState(["All"]);
   const debouncedSearch = useDebounce(searchQuery, 300);
+
+  useEffect(() => { document.title = "NutriSnap — Menu"; }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/dining-halls`)
@@ -431,9 +440,21 @@ export default function MenuBrowser({ onNav }) {
     const strId = String(id);
     setLoggingIds(p => new Set([...p, strId]));
     try {
-      await submitOneItem(id, servings || 1, overrides);
+      let finalServings = servings || 1;
+      // If already logged today for this meal, delete existing and combine quantity
+      if (savedFoodIds.has(strId)) {
+        const today = new Date().toISOString().slice(0, 10);
+        const lData = await apiGet(`/api/log?date=${today}`, token);
+        const existing = (lData.logs || []).find(l => String(l.food_id) === strId && (l.meal_type || "") === mealType)
+          || (lData.logs || []).find(l => String(l.food_id) === strId);
+        if (existing?.id) {
+          await apiDelete(`/api/log/${existing.id}`, token);
+          finalServings = Math.round(((existing.quantity || 1) + finalServings) * 2) / 2;
+        }
+      }
+      await submitOneItem(id, finalServings, overrides);
       setSavedFoodIds(p => new Set([...p, strId]));
-      setSavedServings(p => ({ ...p, [strId]: servings || 1 }));
+      setSavedServings(p => ({ ...p, [strId]: finalServings }));
     } catch (e) {
       console.error("Log item error:", e);
     } finally {
@@ -446,7 +467,7 @@ export default function MenuBrowser({ onNav }) {
     if (!savedFoodIds.has(strId)) return;
     setRemovingIds(p => new Set([...p, strId]));
     try {
-      const lData = await apiGet(`/api/log?date=${TODAY}`, token);
+      const lData = await apiGet(`/api/log?date=${new Date().toISOString().slice(0, 10)}`, token);
       const logs = lData.logs || [];
       let match = logs.find(l => String(l.food_id) === strId && (l.meal_type || "") === mealType);
       if (!match) match = logs.find(l => String(l.food_id) === strId);
@@ -480,24 +501,35 @@ export default function MenuBrowser({ onNav }) {
       {/* Sticky header — solid background so menu doesn't show through when scrolling */}
       <div style={{ padding: "52px 20px 0", position: "sticky", top: 0, background: "var(--bg)", zIndex: 20, paddingBottom: 8, borderBottom: "1px solid var(--border-faint)" }}>
 
-        {/* Title row + hall picker */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 12 }}>
+        {/* Title row + hall picker \u2014 dropdown INSIDE the relative div so top:100% anchors correctly */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 12, position: "relative" }}>
           <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>Today's <span style={{ color: "var(--accent)" }}>Menu</span></h1>
-          <button onClick={() => setShowHallPicker(p => !p)} aria-label="Change dining hall" aria-expanded={showHallPicker} style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, fontWeight: 600, color: "var(--accent)", background: "var(--accent)08", border: "1px solid var(--accent)20", borderRadius: 99, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <button
+            onClick={() => setShowHallPicker(p => !p)}
+            onKeyDown={e => e.key === "Escape" && setShowHallPicker(false)}
+            aria-label="Change dining hall"
+            aria-expanded={showHallPicker}
+            aria-haspopup="listbox"
+            style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, fontWeight: 600, color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: 99, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
+          >
             <span>{diningHalls.find(h => h.id === selectedHall)?.shortName || "Gordon"}</span>
             <span style={{ fontSize: 12, transition: "transform 0.2s", transform: showHallPicker ? "rotate(180deg)" : "none" }}>{"\u25BC"}</span>
           </button>
+          {showHallPicker && (
+            <div
+              style={{ position: "absolute", top: "100%", right: 0, minWidth: 220, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 8, zIndex: 100, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", animation: "fadeIn 0.15s ease" }}
+              role="listbox"
+              aria-label="Select dining hall"
+              onKeyDown={e => e.key === "Escape" && setShowHallPicker(false)}
+            >
+              {diningHalls.map(h => (
+                <button key={h.id} role="option" aria-selected={selectedHall === h.id} onClick={() => { setSelectedHall(h.id); setShowHallPicker(false); setSelectedStation("All"); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", borderRadius: 12, border: "none", cursor: "pointer", background: selectedHall === h.id ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "transparent", fontSize: 13, color: selectedHall === h.id ? "var(--accent)" : "var(--text-secondary)", fontWeight: selectedHall === h.id ? 700 : 400, transition: "all 0.15s" }}>
+                  {h.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-
-        {showHallPicker && (
-          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 8, marginBottom: 10, zIndex: 50, position: "relative" }} role="listbox" aria-label="Select dining hall">
-            {diningHalls.map(h => (
-              <button key={h.id} role="option" aria-selected={selectedHall === h.id} onClick={() => { setSelectedHall(h.id); setShowHallPicker(false); setSelectedStation("All"); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", borderRadius: 12, border: "none", cursor: "pointer", background: selectedHall === h.id ? "var(--accent)10" : "transparent", fontSize: 13, color: selectedHall === h.id ? "var(--accent)" : "var(--text-secondary)", fontWeight: selectedHall === h.id ? 700 : 400, transition: "all 0.15s" }}>
-                {h.name}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Meal tabs */}
         <div style={{ display: "flex", gap: 6, marginBottom: 12 }} role="tablist" aria-label="Select meal">
@@ -575,9 +607,9 @@ export default function MenuBrowser({ onNav }) {
             <>
               <div style={{ display: "flex", gap: 10, overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", touchAction: "pan-x", paddingBottom: 8 }}>
                 {recsLoading ? [0, 1, 2].map(i => (
-                  <div key={i} style={{ flexShrink: 0, width: 148, height: 110, borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border-faint)", backgroundImage: "linear-gradient(90deg,transparent 0%,var(--border-faint) 50%,transparent 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
+                  <div key={i} style={{ flexShrink: 0, width: 160, height: 138, borderRadius: 16, background: "var(--bg-card)", border: "1px solid var(--border-faint)", backgroundImage: "linear-gradient(90deg,transparent 0%,var(--border-faint) 50%,transparent 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
                 )) : recs.map(item => (
-                  <button key={item.food_id} onClick={() => { setSearchQuery(item.name); setSelectedStation("All"); setActiveTags([]); setSortKey("default"); setShowRecs(false); }} style={{ flexShrink: 0, width: 160, background: "var(--accent)04", border: "1px solid var(--accent)15", borderRadius: 16, padding: 12, cursor: "pointer", position: "relative", transition: "border-color 0.2s", textAlign: "left" }}>
+                  <button key={item.food_id} onClick={() => { setSearchQuery(item.name); setSelectedStation("All"); setActiveTags([]); setSortKey("default"); setShowRecs(false); }} style={{ flexShrink: 0, width: 160, background: "color-mix(in srgb, var(--accent) 5%, var(--bg-card))", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: 16, padding: 12, cursor: "pointer", position: "relative", transition: "border-color 0.2s", textAlign: "left" }}>
                     <div style={{ position: "absolute", top: 8, right: 8, fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", background: "var(--accent)10", padding: "2px 6px", borderRadius: 99 }}>{Math.round(item.score)}% fit</div>
                     <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", lineHeight: 1.3, marginBottom: 2, paddingRight: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.name ?? ""}</div>
                     <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 8, color: "var(--accent)", marginBottom: 6, letterSpacing: "0.04em" }}>{item.hall_name ?? item.station ?? ""}</div>
@@ -619,18 +651,9 @@ export default function MenuBrowser({ onNav }) {
             <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, color: "var(--text-dim)" }}>Nothing found</div>
           </div>
         ) : (() => {
-          let lastStation = null;
-          return displayItems.map((item, i) => {
-            const showHeader = sortKey === "station" && item.station !== lastStation;
-            lastStation = item.station;
-            return (
+          return displayItems.map((item, i) => (
               <div key={item.food_id}>
-                {showHeader && (
-                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700, color: "var(--accent)", letterSpacing: "0.06em", textTransform: "uppercase", padding: "16px 0 8px", borderBottom: "1px solid var(--border-faint)", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>{STATION_ICONS[item.station] ?? ""}</span> {item.station ?? "Other"}
-                  </div>
-                )}
-                <div style={{ animation: `fadeSlideUp 0.35s ease ${i * 0.04}s both` }}>
+                <div style={{ animation: `fadeSlideUp 0.35s ease ${Math.min(i * 0.04, 0.3)}s both` }}>
                   <FoodCard
                     item={item}
                     saved={savedFoodIds.has(String(item.food_id))}
@@ -643,8 +666,7 @@ export default function MenuBrowser({ onNav }) {
                   />
                 </div>
               </div>
-            );
-          });
+          ));
         })()}
       </div>
 
