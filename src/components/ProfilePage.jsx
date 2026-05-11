@@ -1,20 +1,55 @@
 import { useState, useEffect } from "react";
+
+const ACTIVITY_LEVELS = [
+  { v: "sedentary", l: "Sedentary", desc: "Desk job or very little movement day-to-day" },
+  { v: "light",     l: "Light",     desc: "Light walks or gym 1–3 days/week"            },
+  { v: "moderate",  l: "Moderate",  desc: "Cardio or strength training 3–5 days/week"    },
+  { v: "active",    l: "Active",    desc: "Hard training or physical job 6–7 days/week"  },
+];
 import { useAuth } from "../auth.jsx";
 import { apiGet, API_BASE } from "../utils/api.js";
 import { DIETARY_PREFS, ALLERGEN_OPTIONS } from "../utils/constants.js";
 import { useTheme } from "../utils/theme.jsx";
 
+// ── Compact toggle button ─────────────────────────────────────────────
+function OptionBtn({ value, current, onSelect, children }) {
+  const active = current === value;
+  return (
+    <button
+      onClick={() => onSelect(value)}
+      aria-pressed={active}
+      style={{
+        flex: 1, padding: "7px 6px", borderRadius: 10, cursor: "pointer",
+        background: active ? "color-mix(in srgb, var(--accent) 12%, transparent)" : "var(--bg-input)",
+        border: `2px solid ${active ? "var(--accent)" : "var(--border-faint)"}`,
+        color: active ? "var(--accent)" : "var(--text-muted)",
+        fontWeight: active ? 700 : 500, fontSize: 12, transition: "all 0.18s",
+        boxShadow: active ? "0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent)" : "none",
+      }}
+    >{children}</button>
+  );
+}
+
+// ── Spinner ───────────────────────────────────────────────────────────
+function Spin() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "spin 0.7s linear infinite", flexShrink: 0 }} aria-hidden="true">
+      <circle cx="12" cy="12" r="10" opacity="0.2"/>
+      <path d="M12 2a10 10 0 0 1 10 10"/>
+    </svg>
+  );
+}
+
 export default function ProfilePage({ onNav }) {
   const { token, logout } = useAuth();
   const { isDark, toggle } = useTheme();
 
-  const [profile,       setProfile]       = useState(null);
-  const [targets,       setTargets]       = useState(null);
   const [loading,       setLoading]       = useState(true);
   const [saving,        setSaving]        = useState(false);
   const [error,         setError]         = useState("");
   const [success,       setSuccess]       = useState("");
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [targets,       setTargets]       = useState(null);
 
   const [displayName,   setDisplayName]   = useState("");
   const [sex,           setSex]           = useState("");
@@ -27,13 +62,14 @@ export default function ProfilePage({ onNav }) {
   const [dietaryRestrictions, setDietaryRestrictions] = useState([]);
 
   useEffect(() => {
+    document.title = "NutriSnap — Profile";
     Promise.all([
       apiGet("/api/profile", token).catch(() => ({})),
       apiGet("/api/targets", token).catch(() => ({})),
     ]).then(([pData, tData]) => {
       const p = pData.profile || pData || {};
       const t = tData.targets || tData || {};
-      setProfile(p); setTargets(t);
+      setTargets(t);
       setDisplayName(p.display_name || "");
       setSex(p.sex || "");
       setAge(p.age ? String(p.age) : "");
@@ -44,12 +80,18 @@ export default function ProfilePage({ onNav }) {
       setGoal(p.goal || "");
       setActivityLevel(p.activity_level || "");
       setDietaryRestrictions(p.dietary_restrictions || []);
-    }).catch(e => { console.error("Profile load error:", e); }).finally(() => setLoading(false));
+    }).catch(e => console.error("Profile load error:", e))
+      .finally(() => setLoading(false));
   }, [token]);
 
-  const toggleDiet = (key) => setDietaryRestrictions(p =>
-    p.includes(key) ? p.filter(k => k !== key) : [...p, key]
-  );
+  useEffect(() => {
+    if (!success) return;
+    const t = setTimeout(() => setSuccess(""), 3000);
+    return () => clearTimeout(t);
+  }, [success]);
+
+  const toggleDiet = (key) =>
+    setDietaryRestrictions(p => p.includes(key) ? p.filter(k => k !== key) : [...p, key]);
 
   const handleSave = async () => {
     if (!displayName || !sex || !age || !heightFt || !weightLbs || !goal || !activityLevel) {
@@ -58,36 +100,28 @@ export default function ProfilePage({ onNav }) {
     setSaving(true); setError(""); setSuccess("");
     try {
       const totalHeight = Math.max(0, parseInt(heightFt || 0, 10) * 12 + parseInt(heightIn || 0, 10));
-      const ageVal = Math.max(1, Math.min(120, parseInt(age, 10) || 0));
-      const weightVal = Math.max(0, parseFloat(weightLbs) || 0);
-      const profileRes = await fetch(`${API_BASE}/api/profile`, {
+      const res = await fetch(`${API_BASE}/api/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           display_name: displayName, sex,
-          age: ageVal,
+          age: Math.max(1, Math.min(120, parseInt(age, 10) || 0)),
           height_in: totalHeight,
-          weight_lbs: weightVal,
+          weight_lbs: Math.max(0, parseFloat(weightLbs) || 0),
           goal, activity_level: activityLevel,
           dietary_restrictions: dietaryRestrictions,
         }),
       });
-      const profileJson = await profileRes.json().catch(() => ({}));
-      if (!profileRes.ok) {
-        setError(profileJson.error || "Failed to save profile.");
-        return;
-      }
-      if (profileJson.targets_error) {
-        setError(profileJson.targets_error);
-      }
-      if (profileJson.targets) {
-        setTargets(profileJson.targets);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(json.error || "Failed to save profile."); return; }
+      if (json.targets_error) setError(json.targets_error);
+      if (json.targets) {
+        setTargets(json.targets);
       } else {
         const tData = await apiGet("/api/targets", token).catch(() => ({}));
-        setTargets(tData.targets != null ? tData.targets : tData || null);
+        setTargets(tData.targets ?? tData ?? null);
       }
-      setSuccess("Profile updated!");
-      setTimeout(() => setSuccess(""), 3000);
+      setSuccess("Profile saved!");
     } catch (e) {
       console.error("Profile save error:", e);
       setError("Failed to save. Please try again.");
@@ -99,248 +133,302 @@ export default function ProfilePage({ onNav }) {
   const handleLogout = async () => {
     if (logoutLoading) return;
     setLogoutLoading(true);
-    try {
-      await logout();
-      if (onNav) onNav("home");
-    } finally {
-      setLogoutLoading(false);
-    }
+    try { await logout(); if (onNav) onNav("home"); }
+    finally { setLogoutLoading(false); }
   };
 
-  const clampNonNegative = (v, max = 9999) => {
+  const clamp = (v, min, max) => {
     const n = parseInt(v, 10);
     if (v === "" || Number.isNaN(n)) return v;
-    if (n < 0) return "0";
-    if (max != null && n > max) return String(max);
-    return String(n);
+    return String(Math.max(min, Math.min(max, n)));
   };
   const clampWeight = (v) => {
     const n = parseFloat(v);
     if (v === "" || Number.isNaN(n)) return v;
-    if (n < 0) return "0";
-    if (n > 999) return "999";
-    return v;
+    return n < 0 ? "0" : n > 999 ? "999" : v;
   };
 
-  const OptionBtn = ({ value, current, onSelect, children }) => (
-    <button onClick={() => onSelect(value)} aria-pressed={current === value} style={{
-      flex: 1, padding: "12px 8px", borderRadius: 12, cursor: "pointer",
-      background: current === value ? "var(--accent)12" : "var(--bg-input)",
-      border: `2px solid ${current === value ? "var(--accent)" : "var(--border-faint)"}`,
-      color: current === value ? "var(--accent)" : "var(--text-muted)",
-      fontWeight: 600, fontSize: 13, transition: "all 0.2s",
-      boxShadow: current === value ? "0 0 0 2px var(--accent)25" : "none",
-    }}>{children}</button>
-  );
-
-  const labelStyle = { display: "block", fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.1em", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: 6 };
-  const inputStyle = { width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-faint)", borderRadius: 12, padding: "12px 16px", fontSize: 14, color: "var(--text-primary)", boxSizing: "border-box" };
-  const inputClassName = "profile-input";
-  const cardStyle  = { background: "var(--bg-card)", border: "1px solid var(--border-faint)", borderRadius: 20, padding: 20, marginBottom: 20, position: "relative", overflow: "hidden" };
-  const sectionTitle = { fontFamily: "'Space Mono',monospace", fontSize: 9, letterSpacing: "0.12em", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: 16, fontWeight: 600 };
+  // ── Shared styles ──
+  const lbl = {
+    display: "block",
+    fontFamily: "'Space Mono',monospace",
+    fontSize: 8,
+    letterSpacing: "0.1em",
+    color: "var(--text-dim)",
+    textTransform: "uppercase",
+    marginBottom: 5,
+  };
+  const inp = {
+    width: "100%",
+    background: "var(--bg-input)",
+    border: "1px solid var(--border-faint)",
+    borderRadius: 10,
+    padding: "8px 11px",
+    fontSize: 13,
+    color: "var(--text-primary)",
+    boxSizing: "border-box",
+  };
+  const card = {
+    background: "var(--bg-card)",
+    border: "1px solid var(--border-faint)",
+    borderRadius: 16,
+    padding: "14px 16px",
+    position: "relative",
+    overflow: "hidden",
+  };
+  const sec = {
+    fontFamily: "'Space Mono',monospace",
+    fontSize: 10,
+    letterSpacing: "0.1em",
+    color: "var(--text-dim)",
+    textTransform: "uppercase",
+    marginBottom: 10,
+    fontWeight: 600,
+  };
 
   if (loading) return (
-    <main className="profile-page" style={{ paddingBottom: 110, animation: "pageIn 0.35s ease" }} role="status" aria-live="polite">
-      <div style={{ padding: "52px 20px 24px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "50vh", gap: 16 }}>
-        <div style={{ width: 40, height: 40, borderRadius: "50%", border: "2px solid var(--border-faint)", borderTopColor: "var(--accent)", animation: "spin 0.8s linear infinite" }} aria-hidden="true" />
-        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, color: "var(--text-muted)" }}>Loading profile...</div>
+    <main className="profile-page" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 32, height: 32, borderRadius: "50%", border: "2px solid var(--border-faint)", borderTopColor: "var(--accent)", animation: "spin 0.8s linear infinite" }} />
+        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-muted)" }}>Loading…</div>
       </div>
     </main>
   );
 
   return (
-    <main className="profile-page" style={{ paddingBottom: 110, animation: "pageIn 0.35s ease" }}>
-      <div style={{ position: "fixed", top: -80, left: "50%", transform: "translateX(-50%)", width: 500, height: 500, background: "radial-gradient(circle, var(--glow) 0%, transparent 65%)", pointerEvents: "none", zIndex: 0 }} aria-hidden="true" />
+    <main className="profile-page" style={{ display: "flex", flexDirection: "column", animation: "pageIn 0.35s ease" }}>
 
-      {/* Header */}
-      <div className="profile-header" style={{ padding: "52px 20px 24px", position: "relative", zIndex: 1 }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 26, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1.2 }}>Your <span style={{ color: "var(--accent)" }}>Profile</span></h1>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, lineHeight: 1.4 }}>Update your info for better recommendations and daily targets.</p>
+      {/* ── Compact header row ── */}
+      <header style={{ padding: "16px 24px 12px", flexShrink: 0, borderBottom: "1px solid var(--border-faint)", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1 }}>
+            Your <span style={{ color: "var(--accent)" }}>Profile</span>
+          </h1>
         </div>
-      </div>
 
-      <div className="profile-content" style={{ padding: "0 20px 24px", position: "relative", zIndex: 1, maxWidth: 520, margin: "0 auto" }}>
-        {error   && <div style={{ background: "var(--danger-bg)", border: "1px solid var(--danger-border)", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "var(--danger)", marginBottom: 16, gridColumn: "1 / -1" }} role="alert">{error}</div>}
-        {success && <div className="profile-success" style={{ background: "var(--accent)12", border: "1px solid var(--accent)30", borderRadius: 14, padding: "14px 18px", fontSize: 14, color: "var(--accent)", marginBottom: 16, gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, fontWeight: 600 }} role="status" aria-live="polite"><span style={{ fontSize: 18 }} aria-hidden="true">{"\u2713"}</span>{success}</div>}
-
-        <div className="profile-col-left">
-        {/* Basic info */}
-        <div className="profile-card" style={cardStyle}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--accent)50,transparent)", opacity: 0.6 }} aria-hidden="true" />
-          <div className="profile-section-title" style={sectionTitle}>Basic info</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>Display name</label>
-              <input className={inputClassName} value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. Badger" style={inputStyle} aria-label="Display name" />
-            </div>
-            <div>
-              <label style={labelStyle}>Biological sex</label>
-              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <OptionBtn value="male"   current={sex} onSelect={setSex}>Male</OptionBtn>
-                <OptionBtn value="female" current={sex} onSelect={setSex}>Female</OptionBtn>
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Age</label>
-              <input type="number" min={1} max={120} value={age} onChange={e => setAge(clampNonNegative(e.target.value, 120))} placeholder="e.g. 20" style={inputStyle} aria-label="Age" />
-            </div>
+        {/* Status badge */}
+        {(error || success) && (
+          <div role="alert" aria-live="polite" style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, padding: "6px 12px", borderRadius: 10, flexShrink: 0, background: error ? "var(--danger-bg)" : "color-mix(in srgb, var(--accent) 12%, transparent)", border: `1px solid ${error ? "var(--danger-border)" : "color-mix(in srgb, var(--accent) 30%, transparent)"}`, color: error ? "var(--danger)" : "var(--accent)" }}>
+            {error || `✓ ${success}`}
           </div>
-        </div>
+        )}
 
-        {/* Body measurements */}
-        <div className="profile-card" style={cardStyle}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--accent2)50,transparent)", opacity: 0.6 }} aria-hidden="true" />
-          <div className="profile-section-title" style={sectionTitle}>Body measurements</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>Height</label>
-              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <div style={{ flex: 1, position: "relative" }}>
-                  <input className={inputClassName} type="number" min={0} max={8} value={heightFt} onChange={e => setHeightFt(clampNonNegative(e.target.value, 8))} placeholder="5" style={{ ...inputStyle, paddingRight: 36 }} aria-label="Height feet" />
-                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }} aria-hidden="true">ft</span>
+        {/* Save button */}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{ padding: "8px 18px", borderRadius: 12, border: "none", cursor: saving ? "not-allowed" : "pointer", background: saving ? "var(--bg-input)" : "linear-gradient(135deg,var(--accent),var(--accent2))", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 13, color: saving ? "var(--text-muted)" : "var(--accent-contrast)", boxShadow: saving ? "none" : "0 4px 16px color-mix(in srgb, var(--accent) 35%, transparent)", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
+          aria-label="Save profile and recalculate targets"
+        >
+          {saving ? <><Spin />Saving…</> : "Save & Recalculate"}
+        </button>
+
+        {/* Sign out */}
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={logoutLoading}
+          style={{ padding: "8px 14px", borderRadius: 12, border: "1px solid var(--danger-border)", cursor: logoutLoading ? "not-allowed" : "pointer", background: "transparent", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13, color: logoutLoading ? "var(--text-dim)" : "var(--danger)", transition: "all 0.2s", flexShrink: 0 }}
+          aria-label="Sign out"
+        >
+          {logoutLoading ? "…" : "Sign out"}
+        </button>
+      </header>
+
+      {/* ── Two-column body ── */}
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: "14px 24px 16px" }}>
+
+        {/* ── Left column ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
+
+          {/* Personal info & body card */}
+          <div style={card}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--accent),transparent)", opacity: 0.5 }} aria-hidden="true" />
+            <div style={sec}>Personal info</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+
+              {/* Name */}
+              <div>
+                <label style={lbl}>Display name</label>
+                <input
+                  className="profile-input"
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  placeholder="e.g. Badger"
+                  style={inp}
+                  aria-label="Display name"
+                />
+              </div>
+
+              {/* Sex + Age (2-col) */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 10 }}>
+                <div>
+                  <label style={lbl}>Biological sex</label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <OptionBtn value="male"   current={sex} onSelect={setSex}>Male</OptionBtn>
+                    <OptionBtn value="female" current={sex} onSelect={setSex}>Female</OptionBtn>
+                  </div>
                 </div>
-                <div style={{ flex: 1, position: "relative" }}>
-                  <input className={inputClassName} type="number" min={0} max={11} value={heightIn} onChange={e => setHeightIn(clampNonNegative(e.target.value, 11))} placeholder="10" style={{ ...inputStyle, paddingRight: 36 }} aria-label="Height inches" />
-                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }} aria-hidden="true">in</span>
+                <div>
+                  <label style={lbl}>Age</label>
+                  <input type="number" min={1} max={120} value={age} onChange={e => setAge(clamp(e.target.value, 1, 120))} placeholder="20" style={inp} aria-label="Age" />
                 </div>
               </div>
-            </div>
-            <div style={{ position: "relative" }}>
-              <label style={labelStyle}>Weight</label>
-              <input className={inputClassName} type="number" min={0} step={0.1} value={weightLbs} onChange={e => setWeightLbs(clampWeight(e.target.value))} placeholder="155" style={{ ...inputStyle, paddingRight: 40, marginTop: 6 }} aria-label="Weight in pounds" />
-              <span style={{ position: "absolute", right: 12, bottom: 12, fontFamily: "'Space Mono',monospace", fontSize: 11, color: "var(--text-dim)" }} aria-hidden="true">lbs</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Goals */}
-        <div className="profile-card" style={cardStyle}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--warning)50,transparent)", opacity: 0.6 }} aria-hidden="true" />
-          <div className="profile-section-title" style={sectionTitle}>Goals</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={labelStyle}>Goal</label>
-              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <OptionBtn value="cut"      current={goal} onSelect={setGoal}>Cut</OptionBtn>
-                <OptionBtn value="maintain" current={goal} onSelect={setGoal}>Maintain</OptionBtn>
-                <OptionBtn value="bulk"     current={goal} onSelect={setGoal}>Bulk</OptionBtn>
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Activity level</label>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
+              {/* Height ft + in + Weight (3-col) */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 {[
-                  { v: "sedentary", l: "Sedentary", d: "Little or no exercise" },
-                  { v: "light",     l: "Light",     d: "Exercise 1–3 days/week" },
-                  { v: "moderate",  l: "Moderate",  d: "Exercise 3–5 days/week" },
-                  { v: "active",    l: "Active",    d: "Exercise 6–7 days/week" },
-                ].map(({ v, l, d }) => (
-                  <button key={v} onClick={() => setActivityLevel(v)} aria-pressed={activityLevel === v} style={{ padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left", background: activityLevel === v ? "var(--accent)08" : "var(--bg-input)", border: `2px solid ${activityLevel === v ? "var(--accent)" : "var(--border-faint)"}`, transition: "all 0.2s", boxShadow: activityLevel === v ? "0 0 0 2px var(--accent)20" : "none" }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: activityLevel === v ? "var(--accent)" : "var(--text-secondary)" }}>{l}</span>
-                    <span style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2, display: "block" }}>{d}</span>
-                  </button>
+                  { lbl: "Height (ft)", val: heightFt, set: v => setHeightFt(clamp(v, 0, 8)),  ph: "5",   unit: "ft",  max: 8  },
+                  { lbl: "Height (in)", val: heightIn, set: v => setHeightIn(clamp(v, 0, 11)), ph: "10",  unit: "in",  max: 11 },
+                  { lbl: "Weight",      val: weightLbs,set: v => setWeightLbs(clampWeight(v)), ph: "155", unit: "lbs", max: null },
+                ].map(({ lbl: l, val, set, ph, unit }) => (
+                  <div key={l} style={{ position: "relative" }}>
+                    <label style={lbl}>{l}</label>
+                    <input
+                      type="number"
+                      value={val}
+                      onChange={e => set(e.target.value)}
+                      placeholder={ph}
+                      style={{ ...inp, paddingRight: unit === "lbs" ? 34 : 26 }}
+                      aria-label={l}
+                    />
+                    <span style={{ position: "absolute", right: 9, bottom: 9, fontFamily: "'Space Mono',monospace", fontSize: 9, color: "var(--text-dim)", pointerEvents: "none" }}>{unit}</span>
+                  </div>
                 ))}
               </div>
             </div>
           </div>
-        </div>
-        </div>
 
-        <div className="profile-col-right">
-        {/* Dietary restrictions */}
-        <div className="profile-card" style={cardStyle}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,#4ade8050,transparent)", opacity: 0.6 }} aria-hidden="true" />
-          <div className="profile-section-title" style={sectionTitle}>Allergens &amp; dietary</div>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16, lineHeight: 1.5 }}>Select all that apply. Used to filter menu recommendations.</p>
+          {/* Goals card */}
+          <div style={card}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--warning),transparent)", opacity: 0.5 }} aria-hidden="true" />
+            <div style={sec}>Goals</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
 
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ ...labelStyle, marginBottom: 8 }}>Lifestyle</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }} role="group" aria-label="Lifestyle preferences">
-            {DIETARY_PREFS.map(({ key, label, icon }) => {
-              const active = dietaryRestrictions.includes(key);
-              return (
-                <button key={key} onClick={() => toggleDiet(key)} aria-pressed={active} style={{ padding: "8px 12px", borderRadius: 99, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: active ? 600 : 400, background: active ? "var(--accent)12" : "var(--bg-input)", border: `2px solid ${active ? "var(--accent)" : "var(--border-faint)"}`, color: active ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.2s" }}>
-                  {active && <span style={{ fontSize: 11 }} aria-hidden="true">{"\u2713"}</span>}
-                  <span aria-hidden="true">{icon}</span>{label}
-                </button>
-              );
-            })}
-          </div>
-          </div>
-
-          <div style={{ height: 1, background: "var(--border-faint)", margin: "16px 0 20px" }} aria-hidden="true" />
-          <div style={{ ...labelStyle, marginBottom: 8 }}>Allergens {"\u2014"} I avoid</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }} role="group" aria-label="Food allergens">
-            {ALLERGEN_OPTIONS.map(({ key, label, icon }) => {
-              const active = dietaryRestrictions.includes(key);
-              return (
-                <button key={key} onClick={() => toggleDiet(key)} aria-pressed={active} style={{ padding: "8px 12px", borderRadius: 99, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: active ? 600 : 400, background: active ? "var(--danger-bg)" : "var(--bg-input)", border: `2px solid ${active ? "var(--danger)" : "var(--border-faint)"}`, color: active ? "var(--danger)" : "var(--text-secondary)", transition: "all 0.2s" }}>
-                  {active && <span style={{ fontSize: 10 }} aria-hidden="true">{"\u2713"}</span>}
-                  <span aria-hidden="true">{icon}</span>{label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Current targets */}
-        {targets && (
-          <div style={cardStyle}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--protein)50,transparent)", opacity: 0.6 }} aria-hidden="true" />
-            <div style={sectionTitle}>Current daily targets</div>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14, lineHeight: 1.5 }}>Based on your profile. Save changes above to recalculate.</p>
-            <div className="profile-targets-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-              {[
-                { l: "Cal", v: targets.calorie_target ?? "-", u: "kcal", c: "var(--cal-color)" },
-                { l: "Protein", v: targets.protein_g ?? "-", u: "g", c: "var(--protein)" },
-                { l: "Carbs", v: targets.carbs_g ?? "-", u: "g", c: "var(--carbs-color)" },
-                { l: "Fat", v: targets.fat_g ?? "-", u: "g", c: "var(--fat-color)" },
-              ].map(({ l, v, u, c }) => (
-                <div key={l} style={{ background: `${c}12`, border: `1px solid ${c}25`, borderRadius: 12, padding: "12px 8px", textAlign: "center" }}>
-                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 15, fontWeight: 700, color: c }}>{v}<span style={{ fontSize: 9, opacity: 0.9 }}> {u}</span></div>
-                  <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.06em" }}>{l}</div>
+              {/* Goal */}
+              <div>
+                <label style={lbl}>Goal</label>
+                <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                  <OptionBtn value="cut"      current={goal} onSelect={setGoal}>Cut</OptionBtn>
+                  <OptionBtn value="maintain" current={goal} onSelect={setGoal}>Maintain</OptionBtn>
+                  <OptionBtn value="bulk"     current={goal} onSelect={setGoal}>Bulk</OptionBtn>
                 </div>
-              ))}
+              </div>
+
+              {/* Activity — horizontal chips + description of selected */}
+              <div>
+                <label style={lbl}>Activity level</label>
+                <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                  {ACTIVITY_LEVELS.map(({ v, l }) => {
+                    const on = activityLevel === v;
+                    return (
+                      <button key={v} onClick={() => setActivityLevel(v)} aria-pressed={on} style={{ flex: 1, padding: "7px 4px", borderRadius: 10, cursor: "pointer", textAlign: "center", background: on ? "color-mix(in srgb, var(--accent) 12%, transparent)" : "var(--bg-input)", border: `2px solid ${on ? "var(--accent)" : "var(--border-faint)"}`, fontSize: 11, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text-muted)", transition: "all 0.18s", boxShadow: on ? "0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent)" : "none" }}>
+                        {l}
+                      </button>
+                    );
+                  })}
+                </div>
+                {activityLevel && (() => {
+                  const found = ACTIVITY_LEVELS.find(a => a.v === activityLevel);
+                  return found ? (
+                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, color: "var(--accent)", marginTop: 8, paddingLeft: 2, animation: "fadeIn 0.2s ease" }}>
+                      {found.desc}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Appearance */}
-        <div className="profile-card" style={cardStyle}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--accent2)50,transparent)", opacity: 0.6 }} aria-hidden="true" />
-          <div className="profile-section-title" style={sectionTitle}>Appearance</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        </div>
+
+        {/* ── Right column ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
+
+          {/* Dietary card — grows to fill */}
+          <div style={{ ...card, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,#4ade80,transparent)", opacity: 0.5 }} aria-hidden="true" />
+            <div style={sec}>Allergens &amp; dietary</div>
+
+            {/* Lifestyle */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ ...lbl, marginBottom: 6 }}>Lifestyle</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }} role="group" aria-label="Lifestyle preferences">
+                {DIETARY_PREFS.map(({ key, label, icon }) => {
+                  const active = dietaryRestrictions.includes(key);
+                  return (
+                    <button key={key} onClick={() => toggleDiet(key)} aria-pressed={active}
+                      style={{ padding: "6px 11px", borderRadius: 99, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: active ? 700 : 400, background: active ? "color-mix(in srgb, var(--accent) 12%, transparent)" : "var(--bg-input)", border: `2px solid ${active ? "var(--accent)" : "var(--border-faint)"}`, color: active ? "var(--accent)" : "var(--text-secondary)", transition: "all 0.18s" }}>
+                      {active && <span aria-hidden="true" style={{ fontSize: 10 }}>✓</span>}
+                      <span aria-hidden="true">{icon}</span>{label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ height: 1, background: "var(--border-faint)", margin: "0 0 10px" }} aria-hidden="true" />
+
+            {/* Allergens */}
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>Dark mode</div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{isDark ? "Dark theme is active" : "Light theme is active"}</div>
+              <div style={{ ...lbl, marginBottom: 6 }}>Allergens — I avoid</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }} role="group" aria-label="Food allergens">
+                {ALLERGEN_OPTIONS.map(({ key, label, icon }) => {
+                  const active = dietaryRestrictions.includes(key);
+                  return (
+                    <button key={key} onClick={() => toggleDiet(key)} aria-pressed={active}
+                      style={{ padding: "6px 11px", borderRadius: 99, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: active ? 700 : 400, background: active ? "var(--danger-bg)" : "var(--bg-input)", border: `2px solid ${active ? "var(--danger)" : "var(--border-faint)"}`, color: active ? "var(--danger)" : "var(--text-secondary)", transition: "all 0.18s" }}>
+                      {active && <span aria-hidden="true" style={{ fontSize: 10 }}>✓</span>}
+                      <span aria-hidden="true">{icon}</span>{label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <button onClick={toggle} aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"} style={{
-              width: 52, height: 28, borderRadius: 99, border: "none", cursor: "pointer", position: "relative",
-              background: isDark ? "var(--accent)" : "var(--border-faint)", transition: "background 0.2s",
-            }}>
-              <span style={{
-                position: "absolute", top: 3, left: isDark ? 27 : 3,
-                width: 22, height: 22, borderRadius: "50%",
-                background: isDark ? "var(--accent-contrast)" : "#fff",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left 0.2s",
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12,
-              }}>{isDark ? "\uD83C\uDF19" : "\u2600\uFE0F"}</span>
-            </button>
           </div>
-        </div>
 
-        <div className="profile-actions" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: 16, borderRadius: 18, border: "none", cursor: saving ? "not-allowed" : "pointer", background: saving ? "var(--bg-input)" : "linear-gradient(135deg,var(--accent),var(--accent2))", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: saving ? "var(--text-muted)" : "var(--accent-contrast)", boxShadow: saving ? "none" : "0 8px 32px var(--accent)40", transition: "all 0.2s" }} aria-label="Save profile and recalculate targets">
-            {saving ? "Saving..." : "Save & Recalculate Targets"}
-          </button>
-          <button type="button" onClick={handleLogout} disabled={logoutLoading} aria-label="Sign out" style={{ width: "100%", padding: "12px 16px", borderRadius: 18, border: "1px solid var(--danger-border)", cursor: logoutLoading ? "not-allowed" : "pointer", background: "transparent", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 14, color: logoutLoading ? "var(--text-dim)" : "var(--danger)", transition: "all 0.2s", opacity: logoutLoading ? 0.6 : 1 }}>
-            {logoutLoading ? "Signing out..." : "Sign out"}
-          </button>
-        </div>
+          {/* Daily targets — anchored above appearance */}
+          {targets && (
+            <div style={card}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--protein),transparent)", opacity: 0.5 }} aria-hidden="true" />
+              <div style={sec}>Daily targets <span style={{ fontWeight: 400, opacity: 0.6, fontSize: 9 }}>— save to recalculate</span></div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                {[
+                  { l: "Calories", v: targets.calorie_target ?? "—", u: "kcal", c: "var(--cal-color)"   },
+                  { l: "Protein",  v: targets.protein_g      ?? "—", u: "g",    c: "var(--protein)"     },
+                  { l: "Carbs",    v: targets.carbs_g        ?? "—", u: "g",    c: "var(--carbs-color)" },
+                  { l: "Fat",      v: targets.fat_g          ?? "—", u: "g",    c: "var(--fat-color)"   },
+                ].map(({ l, v, u, c }) => (
+                  <div key={l} style={{ background: `color-mix(in srgb, ${c} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${c} 20%, transparent)`, borderRadius: 10, padding: "9px 6px", textAlign: "center" }}>
+                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: c }}>{v}<span style={{ fontSize: 9, opacity: 0.8 }}> {u}</span></div>
+                    <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Appearance — slim row at bottom */}
+          <div style={card}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,transparent,var(--accent2),transparent)", opacity: 0.5 }} aria-hidden="true" />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>Dark mode</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{isDark ? "Dark theme active" : "Light theme active"}</div>
+              </div>
+              <button
+                onClick={toggle}
+                aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+                style={{ width: 48, height: 26, borderRadius: 99, border: "none", cursor: "pointer", position: "relative", background: isDark ? "var(--accent)" : "var(--border-faint)", transition: "background 0.2s", flexShrink: 0 }}
+              >
+                <span style={{ position: "absolute", top: 2, left: isDark ? 24 : 2, width: 22, height: 22, borderRadius: "50%", background: isDark ? "var(--accent-contrast)" : "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.25)", transition: "left 0.2s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>
+                  {isDark ? "🌙" : "☀️"}
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </main>
   );
 }
-
